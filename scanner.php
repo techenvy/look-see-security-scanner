@@ -27,29 +27,25 @@ elseif(!current_user_can('manage_options'))
 $errors = array();
 //whether or not there are results to display
 $results = false;
-//the file containing the core file checksums for this version of WordPress
-$md5_core_file = looksee_straighten_windows(dirname(__FILE__) . '/md5sums/' . get_bloginfo('version') . '.md5');
-$md5_core = array();
-//the file containing the file checksums for everything else (as of the last scan)
-$md5_custom_file = looksee_straighten_windows(dirname(__FILE__) . '/md5sums/custom.md5');
-$md5_custom = array();
+
+
 
 //--------------------------------------------------
 //Check server/plugin support
 
-$support_md5 = true;
-$support_version = true;
-$support_custom = true;
+$support_md5 = looksee_support_md5();
+$support_version = looksee_support_version();
+$support_custom = looksee_support_custom();
 
 //is there a version file?
-if(!file_exists($md5_core_file))
+if(!$support_version)
 {
 	$errors[] = 'There is no file database for your version of WP (' . get_bloginfo('version') . '), meaning several of the security scans are unavailable.  Double-check for available <a href="' . admin_url('update-core.php') . '" title="WordPress updates">software updates</a>, as applying them may well fix this problem.';
 	$support_version = false;
 }
 
 //can PHP generate MD5s?
-if(!function_exists('md5_file') || false === md5_file(__FILE__))
+if(!$support_md5)
 {
 	$errors[] = 'This server does not support MD5 checksum generation, so certain security scans are unavailable.';
 	$support_md5 = false;
@@ -57,13 +53,10 @@ if(!function_exists('md5_file') || false === md5_file(__FILE__))
 
 //can PHP write the custom.md5 file?  we'll assume it can if the file exists.
 //if that assumption is wrong, we'll find out later and produce an error.
-if(!file_exists($md5_custom_file))
+if(!$support_custom)
 {
-	if(false === file_put_contents($md5_custom_file, '', LOCK_EX) || !file_exists($md5_custom_file))
-	{
-		$errors[] = "The custom MD5 checksum file ($md5_custom_file) is not writeable, so the custom scan has been disabled.  See the <a href=\"http://wordpress.org/extend/plugins/look-see-security-scanner/faq/\" title=\"FAQ\" target=\"_blank\">FAQ</a> for help.";
-		$support_custom = false;
-	}
+	$errors[] = "The custom MD5 checksum file (MD5_CUSTOM_FILE) is not writeable, so the custom scan has been disabled.  See the <a href=\"http://wordpress.org/extend/plugins/look-see-security-scanner/faq/\" title=\"FAQ\" target=\"_blank\">FAQ</a> for help.";
+	$support_custom = false;
 }
 
 
@@ -85,54 +78,19 @@ if(getenv("REQUEST_METHOD") === "POST")
 
 		if(intval($_POST["scan_wpcore"]) === 1 || intval($_POST["scan_wpadmin"]) === 1 || intval($_POST["scan_wpincludes"]) === 1 || intval($_POST["scan_custom"]) === 1)
 		{
-			//make sure we can read the file database
-			$tmp = explode("\n", @file_get_contents($md5_core_file));
-			foreach($tmp AS $line)
-			{
-				$line = trim($line);
-				if(strlen($line) > 34)
-				{
-					$md5 = substr($line, 0, 32);
-					$file = trim(substr($line, 34));
-
-					//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish
-					if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && strlen($file))
-						$md5_core[$file] = $md5;
-				}
-			}
-			ksort($md5_core);
+			$md5_core = looksee_core_checksums();
 			if(!count($md5_core))
 			{
 				$errors[] = 'The file database for your version of WP (' . get_bloginfo('version') . ') could not be loaded, either due to restrictive server configurations or file corruption.  Several scans are unavailable as a result.';
 				$support_version = false;
 			}
-			unset($tmp);
 		}
 
 		//--------------------------------------------------
 		//Load the custom checksums?
 
 		if(intval($_POST["scan_custom"]) === 1)
-		{
-			//make sure we can read the file database
-			$tmp = explode("\n", @file_get_contents($md5_custom_file));
-			foreach($tmp AS $line)
-			{
-				$line = trim($line);
-				if(strlen($line) > 34)
-				{
-					$md5 = substr($line, 0, 32);
-					$file = trim(substr($line, 34));
-
-					//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish:
-					//1) MD5 is formatted correctly; 2) file name has length; 3) file is not the custom checksum file, as that'll never match. :)
-					if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && strlen($file) && $file !== looksee_straighten_windows(str_replace(ABSPATH,'',$md5_custom_file)))
-						$md5_custom[$file] = $md5;
-				}
-			}
-			ksort($md5_custom);
-			unset($tmp);
-		}
+			$md5_custom = looksee_custom_checksums();
 
 		//--------------------------------------------------
 		//Verify WordPress core files
@@ -258,12 +216,12 @@ if(getenv("REQUEST_METHOD") === "POST")
 			$results[] = "Scanning custom files for changes";
 
 			//all files not part of WP core
-			$custom_files = array_diff(looksee_readdir(looksee_straighten_windows(ABSPATH)), array_keys($md5_core));
+			$custom_files = array_diff(looksee_readdir(looksee_straighten_windows(ABSPATH)), array_keys($md5_core), array(looksee_straighten_windows(str_replace(ABSPATH,'',MD5_CUSTOM_FILE))));
 			sort($custom_files);
 			//ultimately this will produce the new custom.md5
 			$md5_custom_new = array();
 			//keep track of new files
-			$extra = array_diff($custom_files, array_keys($md5_custom), array(looksee_straighten_windows(str_replace(ABSPATH,'',$md5_custom_file))));
+			$extra = array_diff($custom_files, array_keys($md5_custom));
 			//keep track of altered files
 			$altered = array();
 			//keep track of missing files
@@ -300,7 +258,7 @@ if(getenv("REQUEST_METHOD") === "POST")
 			}
 
 			//save results
-			if(false !== ($handle = @fopen($md5_custom_file, "wb")))
+			if(false !== ($handle = @fopen(MD5_CUSTOM_FILE, "wb")))
 			{
 				foreach($md5_custom_new AS $f=>$c)
 				{
@@ -310,7 +268,7 @@ if(getenv("REQUEST_METHOD") === "POST")
 				@fclose($handle);
 			}
 			else
-				$errors[] = "The custom MD5 checksum file ($md5_custom_file) is not writeable, so the custom scan has been disabled.  See the <a href=\"http://wordpress.org/extend/plugins/look-see-security-scanner/faq/\" title=\"FAQ\" target=\"_blank\">FAQ</a> for help.";
+				$errors[] = "The custom MD5 checksum file (MD5_CUSTOM_FILE) is not writeable, so the custom scan has been disabled.  See the <a href=\"http://wordpress.org/extend/plugins/look-see-security-scanner/faq/\" title=\"FAQ\" target=\"_blank\">FAQ</a> for help.";
 
 			//update last-run timestamp
 			update_option('looksee_last_scan_custom', current_time('timestamp'));
@@ -415,7 +373,8 @@ if(count($errors))
 					?></label>
 				</th>
 				<td>
-					<input type="checkbox" name="scan_custom" id="scan_custom" value="1" checked=checked /> This scan compares all non-core files against what things looked like the last time it was run, reporting any new, missing, or altered files.
+					<input type="checkbox" name="scan_custom" id="scan_custom" value="1" checked=checked /> This scan compares all non-core files against what things looked like the last time it was run, reporting any new, missing, or altered files.<br>
+					<span class="description">NOTE: the custom file database is reset whenever this plugin is updated, so it is a good idea to run this scan prior to updating to ensure no changes go unnoticed.</span>
 				</td>
 			</tr>
 			<?php } ?>

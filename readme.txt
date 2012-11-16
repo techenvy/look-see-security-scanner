@@ -66,6 +66,9 @@ The custom scan needs to be able to store the results of the latest scan in a fi
 
 == Changelog ==
 
+= 3.4.2-3 =
+* Automatically build custom file database when missing;
+
 = 3.4.2-2 =
 * Fixed a bug affecting wp-content/uploads scan when uploads are split into multiple folders;
 * Added custom content scan;
@@ -77,6 +80,9 @@ The custom scan needs to be able to store the results of the latest scan in a fi
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 3.4.2-3 =
+This release addresses a small bug introducedin 3.4.2-2.
 
 = 3.4.2-2 =
 This release fixes a bug affecting the wp-content/uploads scan, and also adds a new custom scan. Everyone should upgrade.
