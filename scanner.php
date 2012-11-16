@@ -21,41 +21,31 @@ elseif(!current_user_can('manage_options'))
 
 
 //--------------------------------------------------
+//Some variables we'll be using
+
+//hold any error messages we come up with
+$errors = array();
+//whether or not there are results to display
+$results = false;
+//the file containing the core file checksums for this version of WordPress
+$md5_core_file = looksee_straighten_windows(dirname(__FILE__) . '/md5sums/' . get_bloginfo('version') . '.md5');
+$md5_core = array();
+//the file containing the file checksums for everything else (as of the last scan)
+$md5_custom_file = looksee_straighten_windows(dirname(__FILE__) . '/md5sums/custom.md5');
+$md5_custom = array();
+
+//--------------------------------------------------
 //Check server/plugin support
 
-$errors = array();
 $support_md5 = true;
 $support_version = true;
-$results = false;
+$support_custom = true;
 
 //is there a version file?
-if(!file_exists(dirname(__FILE__) . '/md5sums/' . get_bloginfo('version') . '.md5'))
+if(!file_exists($md5_core_file))
 {
 	$errors[] = 'There is no file database for your version of WP (' . get_bloginfo('version') . '), meaning several of the security scans are unavailable.  Double-check for available <a href="' . admin_url('update-core.php') . '" title="WordPress updates">software updates</a>, as applying them may well fix this problem.';
 	$support_version = false;
-}
-else
-{
-	//make sure we can read the file database
-	$tmp = explode("\n", @file_get_contents(dirname(__FILE__) . '/md5sums/' . get_bloginfo('version') . '.md5'));
-	$checksums = array();
-	foreach($tmp AS $line)
-	{
-		$line = trim($line);
-		if(strlen($line))
-		{
-			list($md5, $file) = explode("  ", $line);
-			//lightly verify that MD5 and file look plausible before adding
-			if(preg_match('/^[a-z0-9]{32}$/', $md5) && strlen(trim($file)))
-				$checksums[trim($file)] = $md5;
-		}
-	}
-	ksort($checksums);
-	if(!count($checksums))
-	{
-		$errors[] = 'The file database for your version of WP (' . get_bloginfo('version') . ') could not be loaded, either due to restrictive server configurations or file corruption.  Several scans are unavailable as a result.';
-		$support_version = false;
-	}
 }
 
 //can PHP generate MD5s?
@@ -63,6 +53,17 @@ if(!function_exists('md5_file') || false === md5_file(__FILE__))
 {
 	$errors[] = 'This server does not support MD5 checksum generation, so certain security scans are unavailable.';
 	$support_md5 = false;
+}
+
+//can PHP write the custom.md5 file?  we'll assume it can if the file exists.
+//if that assumption is wrong, we'll find out later and produce an error.
+if(!file_exists($md5_custom_file))
+{
+	if(false === file_put_contents($md5_custom_file, '', LOCK_EX) || !file_exists($md5_custom_file))
+	{
+		$errors[] = "The custom MD5 checksum file ($md5_custom_file) is not writeable, so the custom scan has been disabled.  See the <a href=\"http://wordpress.org/extend/plugins/look-see-security-scanner/faq/\" title=\"FAQ\" target=\"_blank\">FAQ</a> for help.";
+		$support_custom = false;
+	}
 }
 
 
@@ -80,10 +81,65 @@ if(getenv("REQUEST_METHOD") === "POST")
 		$results = array();
 
 		//--------------------------------------------------
+		//Load the core checksums?
+
+		if(intval($_POST["scan_wpcore"]) === 1 || intval($_POST["scan_wpadmin"]) === 1 || intval($_POST["scan_wpincludes"]) === 1 || intval($_POST["scan_custom"]) === 1)
+		{
+			//make sure we can read the file database
+			$tmp = explode("\n", @file_get_contents($md5_core_file));
+			foreach($tmp AS $line)
+			{
+				$line = trim($line);
+				if(strlen($line) > 34)
+				{
+					$md5 = substr($line, 0, 32);
+					$file = trim(substr($line, 34));
+
+					//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish
+					if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && strlen($file))
+						$md5_core[$file] = $md5;
+				}
+			}
+			ksort($md5_core);
+			if(!count($md5_core))
+			{
+				$errors[] = 'The file database for your version of WP (' . get_bloginfo('version') . ') could not be loaded, either due to restrictive server configurations or file corruption.  Several scans are unavailable as a result.';
+				$support_version = false;
+			}
+			unset($tmp);
+		}
+
+		//--------------------------------------------------
+		//Load the custom checksums?
+
+		if(intval($_POST["scan_custom"]) === 1)
+		{
+			//make sure we can read the file database
+			$tmp = explode("\n", @file_get_contents($md5_custom_file));
+			foreach($tmp AS $line)
+			{
+				$line = trim($line);
+				if(strlen($line) > 34)
+				{
+					$md5 = substr($line, 0, 32);
+					$file = trim(substr($line, 34));
+
+					//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish:
+					//1) MD5 is formatted correctly; 2) file name has length; 3) file is not the custom checksum file, as that'll never match. :)
+					if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && strlen($file) && $file !== looksee_straighten_windows(str_replace(ABSPATH,'',$md5_custom_file)))
+						$md5_custom[$file] = $md5;
+				}
+			}
+			ksort($md5_custom);
+			unset($tmp);
+		}
+
+		//--------------------------------------------------
 		//Verify WordPress core files
 
 		if(intval($_POST["scan_wpcore"]) === 1 && $support_version && $support_md5)
 		{
+			looksee_clock_start();
 			//keep track of missing files
 			$missing = array();
 			//keep track of altered files
@@ -93,11 +149,11 @@ if(getenv("REQUEST_METHOD") === "POST")
 			$results[] = 'Verifying WordPress core files...';
 
 			//cycle through all standard core files
-			foreach($checksums AS $f=>$c)
+			foreach($md5_core AS $f=>$c)
 			{
-				if(!file_exists(ABSPATH . $f))
+				if(!file_exists(looksee_straighten_windows(ABSPATH . $f)))
 					$missing[] = $f;
-				elseif($c !== md5_file(ABSPATH . $f))
+				elseif($c !== md5_file(looksee_straighten_windows(ABSPATH . $f)))
 					$altered[] = $f;
 			}
 
@@ -122,6 +178,10 @@ if(getenv("REQUEST_METHOD") === "POST")
 					$results[] = "\t\t[altered] $f";
 			}
 
+			//update last-run timestamp
+			update_option('looksee_last_scan_wpcore', current_time('timestamp'));
+
+			$results[] = "\tScanned " . count($md5_core) . " files in " . looksee_clock_finish() . " seconds.";
 			$results[] = "";
 			unset($missing);
 			unset($altered);
@@ -134,10 +194,12 @@ if(getenv("REQUEST_METHOD") === "POST")
 		{
 			if(intval($_POST["scan_" . preg_replace('/[^a-z]/i', '', $where)]) === 1 && $support_version)
 			{
+				looksee_clock_start();
 				$results[] = '--------------------------------------------------';
 				$results[] = "Scanning $where/ for unexpected files...";
 				//extra files?
-				$extra = array_diff(looksee_readdir(ABSPATH . $where), array_keys($checksums));
+				$found = looksee_readdir(looksee_straighten_windows(ABSPATH . $where));
+				$extra = array_diff($found, array_keys($md5_core));
 
 				//compile results of extra files check
 				$results[] = "\t" . count($extra) . ' unexpected file' . (count($extra) === 1 ? ' was' : 's were') . ' found.';
@@ -148,8 +210,13 @@ if(getenv("REQUEST_METHOD") === "POST")
 						$results[] = "\t\t[???] $f";
 				}
 
+				//update last-run timestamp
+				update_option('looksee_last_scan_' . preg_replace('/[^a-z]/i', '', $where), current_time('timestamp'));
+
+				$results[] = "\tFinished in " . looksee_clock_finish() . " seconds.";
 				$results[] = "";
 				unset($extra);
+				unset($found);
 			}
 		}
 
@@ -158,10 +225,11 @@ if(getenv("REQUEST_METHOD") === "POST")
 
 		if(intval($_POST["scan_wpuploads"]) === 1)
 		{
+			looksee_clock_start();
 			$results[] = '--------------------------------------------------';
 			$results[] = "Scanning wp-content/uploads/ for scripts...";
 
-			$scripts = looksee_readdir(ABSPATH . 'wp-content/uploads', array('php','php5','php4','php3','xml','html','js','asp','vb','rb'));
+			$scripts = looksee_readdir(looksee_straighten_windows(ABSPATH . 'wp-content/uploads'), array('php','php5','php4','php3','xml','html','js','asp','vb','rb'));
 
 			//compile results of script files check
 			$results[] = "\t" . count($scripts) . ' unexpected file' . (count($scripts) === 1 ? ' was' : 's were') . ' found in your uploads directory.';
@@ -172,9 +240,90 @@ if(getenv("REQUEST_METHOD") === "POST")
 					$results[] = "\t\t[???] $f";
 			}
 
+			//update last-run timestamp
+			update_option('looksee_last_scan_wpuploads', current_time('timestamp'));
+
+			$results[] = "\tFinished in " . looksee_clock_finish() . " seconds.";
 			$results[] = "";
 			unset($scripts);
 		}
+
+		//--------------------------------------------------
+		//Custom file changes
+
+		if(intval($_POST['scan_custom']) === 1 && $support_version && $support_md5 && $support_custom)
+		{
+			looksee_clock_start();
+			$results[] = '--------------------------------------------------';
+			$results[] = "Scanning custom files for changes";
+
+			//all files not part of WP core
+			$custom_files = array_diff(looksee_readdir(looksee_straighten_windows(ABSPATH)), array_keys($md5_core));
+			sort($custom_files);
+			//ultimately this will produce the new custom.md5
+			$md5_custom_new = array();
+			//keep track of new files
+			$extra = array_diff($custom_files, array_keys($md5_custom), array(looksee_straighten_windows(str_replace(ABSPATH,'',$md5_custom_file))));
+			//keep track of altered files
+			$altered = array();
+			//keep track of missing files
+			$missing = array_diff(array_keys($md5_custom), $custom_files);
+
+			//cycle through the current list of files and see what's changed
+			foreach($custom_files AS $f)
+			{
+				$md5_custom_new[$f] = md5_file(looksee_straighten_windows(ABSPATH . $f));
+				if(array_key_exists($f, $md5_custom) && $md5_custom_new[$f] !== $md5_custom[$f])
+					$altered[] = $f;
+			}
+
+			//compile results of extra files check
+			$results[] = "\t" . count($extra) . ' new file' . (count($extra) === 1 ? ' was' : 's were') . ' found.';
+			if(!count($md5_custom))
+				$results[] = "\t**NOTE** The custom file database was empty so no comparisons can be made, however the results will be used for comparison next time you run the scan.";
+			//only list new files if there was no previous scan
+			elseif(count($extra))
+			{
+				foreach($extra AS $f)
+					$results[] = "\t\t[new] $f";
+			}
+
+			//compile results for altered and missing files
+			foreach(array('altered','missing') AS $status)
+			{
+				$results[] = "\t" . count(${$status}) . " $status file" . (count(${$status}) === 1 ? ' was' : 's were') . ' found.';
+				if(count(${$status}))
+				{
+					foreach(${$status} AS $f)
+						$results[] = "\t\t[$status] $f";
+				}
+			}
+
+			//save results
+			if(false !== ($handle = @fopen($md5_custom_file, "wb")))
+			{
+				foreach($md5_custom_new AS $f=>$c)
+				{
+					$line = "$c  $f\n";
+					@fwrite($handle, $line, strlen($line));
+				}
+				@fclose($handle);
+			}
+			else
+				$errors[] = "The custom MD5 checksum file ($md5_custom_file) is not writeable, so the custom scan has been disabled.  See the <a href=\"http://wordpress.org/extend/plugins/look-see-security-scanner/faq/\" title=\"FAQ\" target=\"_blank\">FAQ</a> for help.";
+
+			//update last-run timestamp
+			update_option('looksee_last_scan_custom', current_time('timestamp'));
+
+			$results[] = "\tScanned " . count($custom_files) . " files in " . looksee_clock_finish() . " seconds.";
+			$results[] = "";
+			unset($custom_files);
+			unset($extra);
+			unset($altered);
+			unset($missing);
+			unset($md5_custom_new);
+		}
+
 	}
 }
 
@@ -205,7 +354,11 @@ if(count($errors))
 			<?php if($support_version && $support_md5) { ?>
 			<tr valign="top">
 				<th scope="row">
-					<label for="scan_wpcore">Verify WordPress core files</label>
+					<label for="scan_wpcore">Verify WordPress core files<?php
+					$lastrun = (int) get_option('looksee_last_scan_wpcore', 0);
+					if($lastrun > 0)
+						echo  '<br><span class="description">last run ' . date("Y-m-d H:i:s", $lastrun) . '</span>';
+					?></label>
 				</th>
 				<td>
 					<input type="checkbox" name="scan_wpcore" id="scan_wpcore" value="1" checked=checked /> We know exactly what a clean installation of WordPress is supposed to contain.  This scan searches the file database corresponding to your version of WordPress and reports any files that are missing or altered.  Missing files are indicative of a screwy (e.g. incomplete) installation, while altered files might indicate malware infection.
@@ -215,7 +368,11 @@ if(count($errors))
 			<?php if($support_version) { ?>
 			<tr valign="top">
 				<th scope="row">
-					<label for="scan_wpadmin">Extra files in wp-admin/</label>
+					<label for="scan_wpadmin">Extra files in wp-admin/<?php
+					$lastrun = (int) get_option('looksee_last_scan_wpadmin', 0);
+					if($lastrun > 0)
+						echo  '<br><span class="description">last run ' . date("Y-m-d H:i:s", $lastrun) . '</span>';
+					?></label>
 				</th>
 				<td>
 					<input type="checkbox" name="scan_wpadmin" id="scan_wpadmin" value="1" checked=checked /> Legitimate user content shouldn't really end up in the wp-admin/ folder.  This scan searches for files which are not part of a clean installation.
@@ -225,7 +382,11 @@ if(count($errors))
 			<?php if($support_version) { ?>
 			<tr valign="top">
 				<th scope="row">
-					<label for="scan_wpincludes">Extra files in wp-includes/</label>
+					<label for="scan_wpincludes">Extra files in wp-includes/<?php
+					$lastrun = (int) get_option('looksee_last_scan_wpincludes', 0);
+					if($lastrun > 0)
+						echo  '<br><span class="description">last run ' . date("Y-m-d H:i:s", $lastrun) . '</span>';
+					?></label>
 				</th>
 				<td>
 					<input type="checkbox" name="scan_wpincludes" id="scan_wpincludes" value="1" checked=checked /> As with the above, wp-includes/ is no place for legitimate user content.  This scan searches for files which are not part of a clean installation.
@@ -234,12 +395,30 @@ if(count($errors))
 			<?php } ?>
 			<tr valign="top">
 				<th scope="row">
-					<label for="scan_wpuploads">Scripts in wp-content/uploads/</label>
+					<label for="scan_wpuploads">Scripts in wp-content/uploads/<?php
+					$lastrun = (int) get_option('looksee_last_scan_wpuploads', 0);
+					if($lastrun > 0)
+						echo  '<br><span class="description">last run ' . date("Y-m-d H:i:s", $lastrun) . '</span>';
+					?></label>
 				</th>
 				<td>
 					<input type="checkbox" name="scan_wpuploads" id="scan_wpuploads" value="1" checked=checked /> The wp-content/uploads folder can quickly become labyrinthine and so is an excellent place for hackers to hide backdoors.  This scan searches the uploads folder for executable scripts.
 				</td>
 			</tr>
+			<?php if($support_version && $support_md5 && $support_custom) { ?>
+			<tr valign="top">
+				<th scope="row">
+					<label for="scan_custom">Custom file changes<?php
+					$lastrun = (int) get_option('looksee_last_scan_custom', 0);
+					if($lastrun > 0)
+						echo  '<br><span class="description">last run ' . date("Y-m-d H:i:s", $lastrun) . '</span>';
+					?></label>
+				</th>
+				<td>
+					<input type="checkbox" name="scan_custom" id="scan_custom" value="1" checked=checked /> This scan compares all non-core files against what things looked like the last time it was run, reporting any new, missing, or altered files.
+				</td>
+			</tr>
+			<?php } ?>
 			<tr valign="top">
 				<th scope="row">&nbsp;</th>
 				<td>

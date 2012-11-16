@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 3.4.2
+Version: 3.4.2-2
 Author: Josh Stoik
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -77,6 +77,11 @@ function looksee_security_scanner(){
 // @return array files or false
 function looksee_readdir($dir, $ext=null) {
 
+	//no trailing slash
+	if(substr($dir, -1) == '/' || substr($dir, -1) == '\\')
+		$dir = substr($dir, 0, strlen($dir)-1);
+
+	//make sure this is a valid directory
 	if(!is_dir($dir))
 		return false;
 
@@ -91,7 +96,7 @@ function looksee_readdir($dir, $ext=null) {
 				$tmp[] = $e;
 		}
 		if(count($tmp))
-			$ext = '/\.(' . implode('|', array_unique($tmp)) . ')$/i';
+			$regext = '/\.(' . implode('|', array_unique($tmp)) . ')$/i';
 		else
 			$ext = null;
 	}
@@ -108,16 +113,66 @@ function looksee_readdir($dir, $ext=null) {
 		if(!in_array($v,array(".","..")))
 		{
 			//recurse if $v is itself a directory
-			if(is_dir($dir . DIRECTORY_SEPARATOR . $v))
-				$contents = array_merge($contents, looksee_readdir($dir . DIRECTORY_SEPARATOR . $v));
+			if(is_dir(looksee_straighten_windows($dir . DIRECTORY_SEPARATOR . $v)))
+				$contents = array_merge($contents, looksee_readdir(looksee_straighten_windows($dir . DIRECTORY_SEPARATOR . $v), $ext));
 			//if $v is a file (if $ext is specified, a matching file), add it
 			//although we want a location relative to WP root, so we remove ABSPATH from the beginning
-			elseif(is_null($ext) || preg_match($ext, $v))
-				$contents[] = str_replace(ABSPATH, '', $dir . DIRECTORY_SEPARATOR . $v);
+			elseif(is_null($ext) || preg_match($regext, $v))
+				$contents[] = looksee_straighten_windows(str_replace(ABSPATH, '', $dir . DIRECTORY_SEPARATOR . $v));
 		}
 	}
 
 	return array_unique($contents);
+}
+
+//--------------------------------------------------
+//filter_var() validation function for MD5 checksums
+//
+// @since 3.4.2-2
+//
+// @param $str apparent MD5 checksum
+// @return true/false
+function looksee_filter_validate_md5($str=''){
+	//should be valid hex and 32 chars
+	return (bool) preg_match('/^[A-Fa-f0-9]{32}$/', $str);
+}
+
+//--------------------------------------------------
+//A simple timer - start
+//
+// @since 3.4.2-2
+//
+// @return true
+$looksee_time = 0;
+function looksee_clock_start(){
+	global $looksee_time;
+	$looksee_time = microtime(true);
+	return true;
+}
+
+//--------------------------------------------------
+//A simple timer - finish
+//
+// @since 3.4.2-2
+//
+// @return seconds since $looksee_time
+function looksee_clock_finish(){
+	global $looksee_time;
+	$difference = round(microtime(true) - $looksee_time, 4);
+	$looksee_time = 0;
+	return $difference;
+}
+
+//--------------------------------------------------
+//Windows' backward slashes cause problems, so let's
+//straighten them out!
+//
+// @since 3.4.2-2
+//
+// @param $path
+// @return path (\ -> /)
+function looksee_straighten_windows($path){
+	return str_replace('\\','/',$path);
 }
 
 //----------------------------------------------------------------------  end miscellaneous functions
