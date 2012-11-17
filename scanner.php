@@ -373,7 +373,7 @@ if(count($errors))
 					?></label>
 				</th>
 				<td>
-					<input type="checkbox" name="scan_custom" id="scan_custom" value="1" checked=checked /> This scan compares all non-core files against what things looked like the last time it was run, reporting any new, missing, or altered files.<br>
+					<input type="checkbox" name="scan_custom" id="scan_custom" value="1" /> This scan compares all non-core files against what things looked like the last time it was run, reporting any new, missing, or altered files.<br>
 					<span class="description">NOTE: the custom file database is reset whenever this plugin is updated, so it is a good idea to run this scan prior to updating to ensure no changes go unnoticed.</span>
 				</td>
 			</tr>
