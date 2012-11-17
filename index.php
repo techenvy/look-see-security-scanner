@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 3.4.2-4
+Version: 3.4.2-5
 Author: Josh Stoik
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -28,7 +28,8 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
 
 define('MD5_CORE_FILE', looksee_straighten_windows(dirname(__FILE__) . '/md5sums/' . get_bloginfo('version') . '.md5'));
-define('MD5_CUSTOM_FILE', looksee_straighten_windows(dirname(__FILE__) . '/md5sums/custom.md5'));
+define('CRC32_CUSTOM_FILE', looksee_straighten_windows(dirname(__FILE__) . '/md5sums/custom.crc32'));
+
 
 
 //----------------------------------------------------------------------
@@ -73,43 +74,6 @@ function looksee_security_scanner(){
 //functions relating to the core and custom file checksum databases
 
 //--------------------------------------------------
-//Build the custom file database if it does not exist
-//
-// @since 3.4.2-3
-//
-// @param n/a
-// @return true
-/*
-function looksee_init_custom_checksums() {
-	//if the custom file already exists, we don't need to be here
-	if(file_exists(MD5_CUSTOM_FILE))
-		return true;
-
-	//we need support for MD5 and the current version for this to work...
-	if(false === ($md5_core = looksee_core_checksums()))
-		return false;
-
-	//find custom files
-	$custom_files = array_diff(looksee_readdir(looksee_straighten_windows(ABSPATH)), array_keys($md5_core), array(looksee_straighten_windows(str_replace(ABSPATH,'',MD5_CUSTOM_FILE))));
-	sort($custom_files);
-
-	//try to save the results
-	if(false === ($handle = @fopen(MD5_CUSTOM_FILE, "wb")))
-		return false;
-
-	foreach($custom_files AS $f)
-	{
-		$line = md5_file(looksee_straighten_windows(ABSPATH . $f)) . "  $f\n";
-		@fwrite($handle, $line, strlen($line));
-	}
-	@fclose($handle);
-
-	return true;
-}
-add_action('init','looksee_init_custom_checksums');
-*/
-
-//--------------------------------------------------
 //Load core checksums
 //
 // @since 3.4.2-3
@@ -149,25 +113,25 @@ function looksee_core_checksums(){
 // @param n/a
 // @return array checksums or false
 function looksee_custom_checksums(){
-	$md5_custom = array();
+	$crc_custom = array();
 	//make sure we can read the file database
-	$tmp = explode("\n", @file_get_contents(MD5_CUSTOM_FILE));
+	$tmp = explode("\n", @file_get_contents(CRC32_CUSTOM_FILE));
 	foreach($tmp AS $line)
 	{
 		$line = trim($line);
-		if(strlen($line) > 34)
+		if(strlen($line) > 10)
 		{
-			$md5 = substr($line, 0, 32);
-			$file = trim(substr($line, 34));
+			$crc = substr($line, 0, 8);
+			$file = trim(substr($line, 10));
 
 			//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish:
-			//1) MD5 is formatted correctly; 2) file name has length; 3) file is not the custom checksum file, as that'll never match. :)
-			if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && strlen($file) && $file !== looksee_straighten_windows(str_replace(ABSPATH,'',MD5_CUSTOM_FILE)))
-				$md5_custom[$file] = $md5;
+			//1) CRC32b is formatted correctly; 2) file name has length; 3) file is not the custom checksum file, as that'll never match. :)
+			if(filter_var($crc, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_crc32')) && strlen($file) && $file !== looksee_straighten_windows(str_replace(ABSPATH,'',CRC32_CUSTOM_FILE)))
+				$crc_custom[$file] = $crc;
 		}
 	}
-	ksort($md5_custom);
-	return $md5_custom;
+	ksort($crc_custom);
+	return $crc_custom;
 }
 
 //----------------------------------------------------------------------  end file checksum functions
@@ -201,6 +165,17 @@ function looksee_support_md5(){
 }
 
 //--------------------------------------------------
+//Support for hash_file crc32
+//
+// @since 3.4.2-5
+//
+// @param n/a
+// @return true/false
+function looksee_support_crc32(){
+	return function_exists('hash_file') && false !== hash_file('crc32', __FILE__);
+}
+
+//--------------------------------------------------
 //Support for custom version
 //
 // @since 3.4.2-3
@@ -208,10 +183,10 @@ function looksee_support_md5(){
 // @param n/a
 // @return true/false
 function looksee_support_custom(){
-	if(file_exists(MD5_CUSTOM_FILE))
+	if(file_exists(CRC32_CUSTOM_FILE))
 		return true;
 
-	return false !== file_put_contents(MD5_CUSTOM_FILE, '', LOCK_EX) && file_exists(MD5_CUSTOM_FILE);
+	return false !== file_put_contents(CRC32_CUSTOM_FILE, '', LOCK_EX) && file_exists(CRC32_CUSTOM_FILE);
 }
 
 //----------------------------------------------------------------------  end support functions
@@ -291,6 +266,18 @@ function looksee_readdir($dir, $ext=null) {
 function looksee_filter_validate_md5($str=''){
 	//should be valid hex and 32 chars
 	return (bool) preg_match('/^[A-Fa-f0-9]{32}$/', $str);
+}
+
+//--------------------------------------------------
+//filter_var() validation function for CRC32b checksums
+//
+// @since 3.4.2-5
+//
+// @param $str apparent CRC checksum
+// @return true/false
+function looksee_filter_validate_crc32($str=''){
+	//should be valid hex and 8 chars
+	return (bool) preg_match('/^[A-Fa-f0-9]{8}$/', $str);
 }
 
 //--------------------------------------------------

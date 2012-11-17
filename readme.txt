@@ -66,6 +66,9 @@ The custom scan needs to be able to store the results of the latest scan in a fi
 
 == Changelog ==
 
+= 3.4.2-5 =
+* Switched from MD5 to CRC32 checksums for the custom file database as the former was simply too slow for many users.
+
 = 3.4.2-4 =
 * Disable automatic building of custom file database when missing; operation can take a long time on slow servers.
 
@@ -83,6 +86,9 @@ The custom scan needs to be able to store the results of the latest scan in a fi
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 3.4.2-5 =
+This release speeds up custom file scans; if your current setup is too slow, try upgrading.
 
 = 3.4.2-4 =
 This release roles back the changes of 3.4.2-3, as it proved too difficult for slow servers.

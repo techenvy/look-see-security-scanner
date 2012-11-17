@@ -36,28 +36,25 @@ $results = false;
 $support_md5 = looksee_support_md5();
 $support_version = looksee_support_version();
 $support_custom = looksee_support_custom();
+$support_crc32 = looksee_support_crc32();
 
 //is there a version file?
 if(!$support_version)
-{
 	$errors[] = 'There is no file database for your version of WP (' . get_bloginfo('version') . '), meaning several of the security scans are unavailable.  Double-check for available <a href="' . admin_url('update-core.php') . '" title="WordPress updates">software updates</a>, as applying them may well fix this problem.';
-	$support_version = false;
-}
 
 //can PHP generate MD5s?
 if(!$support_md5)
-{
 	$errors[] = 'This server does not support MD5 checksum generation, so certain security scans are unavailable.';
-	$support_md5 = false;
-}
 
-//can PHP write the custom.md5 file?  we'll assume it can if the file exists.
+//can PHP write the custom.crc32 file?  we'll assume it can if the file exists.
 //if that assumption is wrong, we'll find out later and produce an error.
 if(!$support_custom)
-{
-	$errors[] = "The custom MD5 checksum file (MD5_CUSTOM_FILE) is not writeable, so the custom scan has been disabled.  See the <a href=\"http://wordpress.org/extend/plugins/look-see-security-scanner/faq/\" title=\"FAQ\" target=\"_blank\">FAQ</a> for help.";
-	$support_custom = false;
-}
+	$errors[] = 'The custom CRC32 checksum file (' . CRC32_CUSTOM_FILE . ') is not writeable, so the custom scan has been disabled.  See the <a href="http://wordpress.org/extend/plugins/look-see-security-scanner/faq/" title="FAQ" target="_blank">FAQ</a> for help.';
+
+//can PHP generate CRC32 hashes?
+if(!$support_crc32)
+	$errors[] = 'The server does not support CRC32 checksum generation, so the custom scan is unavailable.';
+
 
 
 
@@ -90,7 +87,7 @@ if(getenv("REQUEST_METHOD") === "POST")
 		//Load the custom checksums?
 
 		if(intval($_POST["scan_custom"]) === 1)
-			$md5_custom = looksee_custom_checksums();
+			$crc32_custom = looksee_custom_checksums();
 
 		//--------------------------------------------------
 		//Verify WordPress core files
@@ -209,35 +206,35 @@ if(getenv("REQUEST_METHOD") === "POST")
 		//--------------------------------------------------
 		//Custom file changes
 
-		if(intval($_POST['scan_custom']) === 1 && $support_version && $support_md5 && $support_custom)
+		if(intval($_POST['scan_custom']) === 1 && $support_version && $support_crc32 && $support_custom)
 		{
 			looksee_clock_start();
 			$results[] = '--------------------------------------------------';
 			$results[] = "Scanning custom files for changes";
 
 			//all files not part of WP core
-			$custom_files = array_diff(looksee_readdir(looksee_straighten_windows(ABSPATH)), array_keys($md5_core), array(looksee_straighten_windows(str_replace(ABSPATH,'',MD5_CUSTOM_FILE))));
+			$custom_files = array_diff(looksee_readdir(looksee_straighten_windows(ABSPATH)), array_keys($md5_core), array(looksee_straighten_windows(str_replace(ABSPATH,'',CRC32_CUSTOM_FILE))));
 			sort($custom_files);
 			//ultimately this will produce the new custom.md5
-			$md5_custom_new = array();
+			$crc32_custom_new = array();
 			//keep track of new files
-			$extra = array_diff($custom_files, array_keys($md5_custom));
+			$extra = array_diff($custom_files, array_keys($crc32_custom));
 			//keep track of altered files
 			$altered = array();
 			//keep track of missing files
-			$missing = array_diff(array_keys($md5_custom), $custom_files);
+			$missing = array_diff(array_keys($crc32_custom), $custom_files);
 
 			//cycle through the current list of files and see what's changed
 			foreach($custom_files AS $f)
 			{
-				$md5_custom_new[$f] = md5_file(looksee_straighten_windows(ABSPATH . $f));
-				if(array_key_exists($f, $md5_custom) && $md5_custom_new[$f] !== $md5_custom[$f])
+				$crc32_custom_new[$f] = hash_file('crc32', looksee_straighten_windows(ABSPATH . $f));
+				if(array_key_exists($f, $crc32_custom) && $crc32_custom_new[$f] !== $crc32_custom[$f])
 					$altered[] = $f;
 			}
 
 			//compile results of extra files check
 			$results[] = "\t" . count($extra) . ' new file' . (count($extra) === 1 ? ' was' : 's were') . ' found.';
-			if(!count($md5_custom))
+			if(!count($crc32_custom))
 				$results[] = "\t**NOTE** The custom file database was empty so no comparisons can be made, however the results will be used for comparison next time you run the scan.";
 			//only list new files if there was no previous scan
 			elseif(count($extra))
@@ -258,9 +255,9 @@ if(getenv("REQUEST_METHOD") === "POST")
 			}
 
 			//save results
-			if(false !== ($handle = @fopen(MD5_CUSTOM_FILE, "wb")))
+			if(false !== ($handle = @fopen(CRC32_CUSTOM_FILE, "wb")))
 			{
-				foreach($md5_custom_new AS $f=>$c)
+				foreach($crc32_custom_new AS $f=>$c)
 				{
 					$line = "$c  $f\n";
 					@fwrite($handle, $line, strlen($line));
@@ -268,7 +265,7 @@ if(getenv("REQUEST_METHOD") === "POST")
 				@fclose($handle);
 			}
 			else
-				$errors[] = "The custom MD5 checksum file (MD5_CUSTOM_FILE) is not writeable, so the custom scan has been disabled.  See the <a href=\"http://wordpress.org/extend/plugins/look-see-security-scanner/faq/\" title=\"FAQ\" target=\"_blank\">FAQ</a> for help.";
+				$errors[] = 'The custom CRC32 checksum file (' . CRC32_CUSTOM_FILE . ') is not writeable, so the custom scan has been disabled.  See the <a href="http://wordpress.org/extend/plugins/look-see-security-scanner/faq/" title="FAQ" target="_blank">FAQ</a> for help.';
 
 			//update last-run timestamp
 			update_option('looksee_last_scan_custom', current_time('timestamp'));
@@ -279,7 +276,7 @@ if(getenv("REQUEST_METHOD") === "POST")
 			unset($extra);
 			unset($altered);
 			unset($missing);
-			unset($md5_custom_new);
+			unset($crc32_custom_new);
 		}
 
 	}
