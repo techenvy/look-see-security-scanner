@@ -382,7 +382,7 @@ if(count($errors))
 				<th scope="row">&nbsp;</th>
 				<td>
 					<input type="submit" value="Scan Now" />
-					<p class="description">If the server hosting your web site is slow, it might be best to run these tests one at a time.</p>
+					<p class="description">If the server hosting your web site is slow or if your blog is gratuitously large, it might be best to run these tests one at a time.</p>
 				</td>
 			</tr>
 		</tbody>
