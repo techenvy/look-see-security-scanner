@@ -66,6 +66,9 @@ The custom scan needs to be able to store the results of the latest scan in a fi
 
 == Changelog ==
 
+= 3.4.2-4 =
+* Disable automatic building of custom file database when missing; operation can take a long time on slow servers.
+
 = 3.4.2-3 =
 * Automatically build custom file database when missing;
 
@@ -80,6 +83,9 @@ The custom scan needs to be able to store the results of the latest scan in a fi
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 3.4.2-4 =
+This release roles back the changes of 3.4.2-3, as it proved too difficult for slow servers.
 
 = 3.4.2-3 =
 This release addresses a small bug introducedin 3.4.2-2.
