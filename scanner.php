@@ -118,7 +118,7 @@ if(getenv("REQUEST_METHOD") === "POST")
 		//queue up the files!
 		$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_found`='', `queued`=1");
 
-		echo '<div class="updated fade">Let\'s have a look-see!</div>';
+		echo '<div class="updated fade"><p>Let\'s have a look-see!</p></div>';
 
 		//now we are scanning...
 		$is_scanning = true;
