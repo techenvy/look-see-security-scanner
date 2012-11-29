@@ -99,13 +99,17 @@ if(getenv("REQUEST_METHOD") === "POST")
 		if(count($files_new))
 		{
 			$inserts = array();
+			//try to prevent a server timeout if things are taking a really long time
+			@set_time_limit(0);
 			foreach($files_new AS $f)
 			{
-				//add to the database in blocks of 250
-				if(count($inserts) === 250)
+				//add to the database in blocks
+				if(count($inserts) === LOOKSEE_SCAN_INTERVAL)
 				{
 					$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES ('" . implode("'),('", $inserts) . "')");
 					$inserts = array();
+					//try to prevent a server timeout if things are taking a really long time
+					@set_time_limit(0);
 				}
 				$inserts[] = mysql_real_escape_string($f);
 			}
