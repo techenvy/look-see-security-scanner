@@ -104,7 +104,7 @@ if(getenv("REQUEST_METHOD") === "POST")
 			foreach($files_new AS $f)
 			{
 				//add to the database in blocks
-				if(count($inserts) === LOOKSEE_SCAN_INTERVAL)
+				if(count($inserts) == LOOKSEE_SCAN_INTERVAL)
 				{
 					$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES ('" . implode("'),('", $inserts) . "')");
 					$inserts = array();
