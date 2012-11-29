@@ -62,7 +62,7 @@ Don't count on it.  As a general rule, you should always be running the latest v
 = 3.4.2-6 =
 * Dramatically simplified scan process and reporting;
 * Queue-based scanning to improve support with slow servers;
-* MD5 checksums are once again used to custom content;
+* MD5 checksums are once again used for validating custom content;
 
 = 3.4.2-5 =
 * Switched from MD5 to CRC32 checksums for the custom file database as the former was simply too slow for many users.
