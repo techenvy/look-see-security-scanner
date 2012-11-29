@@ -17,8 +17,8 @@ Look-see Security Scanner is a relatively quick and painless way to locate the s
   * Verify the integrity of all core WordPress files;
   * Search wp-admin/ for unexpected files;
   * Search wp-includes/ for unexpected files;
-  * Search wp-content/uploads/ for unusual file types;
-  * Compare the current custom file contents of a WP installation to what it looked like the last time it was scanned;
+  * Search wp-content/uploads/ for hidden PHP scripts;
+  * Identify file changes since previous scan;
 
 == Installation ==
 
@@ -52,19 +52,17 @@ Not necessarily. There could still be backdoors elsewhere on the server. As alwa
 
 Don't count on it.  As a general rule, you should always be running the latest version of WordPress anyway.  Not doing so is not safe.
 
-= The custom MD5 checksum file is not writeable... =
-
-The custom scan needs to be able to store the results of the latest scan in a file located in `[the look-see plugin directory]/md5sums/custom.md5` for later comparison; you'll receive an error if WordPress is not allowed to do this.  To correct the problem:
-
-1. Upload a blank text file called `custom.md5` to the aforementioned location and re-run the custom scan.  If it works, great!  If not, move onto #2...
-2. Change the file's owner:group to that of the web server (i.e. assign ownership of the file over to the web server). If WP still cannot write to the file or if you are unable to make this change, then as a last resort...
-3. Change the file's read/write/execute permissions (CHMOD) to whatever is required by your server to give WP the authority to make changes.  This might have to be 777, though if a lower value works, use that instead.
-
 == Screenshots ==
 
-1. Easily choose from a list of tests to run and quickly see the results.
+1. Realtime scan progress.
+2. Easy to understand scan results with expandable details and test explanations.
 
 == Changelog ==
+
+= 3.4.2-6 =
+* Dramatically simplified scan process and reporting;
+* Queue-based scanning to improve support with slow servers;
+* MD5 checksums are once again used to custom content;
 
 = 3.4.2-5 =
 * Switched from MD5 to CRC32 checksums for the custom file database as the former was simply too slow for many users.
@@ -86,6 +84,9 @@ The custom scan needs to be able to store the results of the latest scan in a fi
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 3.4.2-6 =
+Scan process and reporting has been dramatically simplified; additionally, support for slower servers has been greatly improved.
 
 = 3.4.2-5 =
 This release speeds up custom file scans; if your current setup is too slow, try upgrading.

@@ -25,8 +25,10 @@ elseif(!current_user_can('manage_options'))
 
 //hold any error messages we come up with
 $errors = array();
-//whether or not there are results to display
-$results = false;
+//we need wpdb
+global $wpdb;
+//scan in progress?
+$is_scanning = intval($wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files` WHERE `queued`=1")) > 0;
 
 
 
@@ -35,375 +37,381 @@ $results = false;
 
 $support_md5 = looksee_support_md5();
 $support_version = looksee_support_version();
-$support_custom = looksee_support_custom();
-$support_crc32 = looksee_support_crc32();
 
 //is there a version file?
 if(!$support_version)
-	$errors[] = 'There is no file database for your version of WP (' . get_bloginfo('version') . '), meaning several of the security scans are unavailable.  Double-check for available <a href="' . admin_url('update-core.php') . '" title="WordPress updates">software updates</a>, as applying them may well fix this problem.';
+	$errors[] = 'There is no file database for your version of WP (' . get_bloginfo('version') . ').  Double-check for available <a href="' . admin_url('update-core.php') . '" title="WordPress updates">software updates</a>, as applying them may well fix this problem.';
 
 //can PHP generate MD5s?
 if(!$support_md5)
-	$errors[] = 'This server does not support MD5 checksum generation, so certain security scans are unavailable.';
+	$errors[] = 'This server does not support MD5 checksum generation, which is required to verify the integrity of your files.';
 
-//can PHP write the custom.crc32 file?  we'll assume it can if the file exists.
-//if that assumption is wrong, we'll find out later and produce an error.
-if(!$support_custom)
-	$errors[] = 'The custom CRC32 checksum file (' . CRC32_CUSTOM_FILE . ') is not writeable, so the custom scan has been disabled.  See the <a href="http://wordpress.org/extend/plugins/look-see-security-scanner/faq/" title="FAQ" target="_blank">FAQ</a> for help.';
+//error output
+if(count($errors))
+{
+	foreach($errors AS $e)
+		echo '<div class="error fade"><p>' . $e . '</p></div>';
 
-//can PHP generate CRC32 hashes?
-if(!$support_crc32)
-	$errors[] = 'The server does not support CRC32 checksum generation, so the custom scan is unavailable.';
-
+	//these are deal-breakers, so let's get outta here
+	return;
+}
 
 
 
 //--------------------------------------------------
-//Scan!
+//Setup the scan!
 
 if(getenv("REQUEST_METHOD") === "POST")
 {
 	//bad nonce, no scan
 	if(!wp_verify_nonce($_POST['_wpnonce'],'looksee-core-scanner'))
 		$errors[] = 'Sorry the form had expired.  Please try again.';
+	//existing scan?
+	elseif($is_scanning)
+		$errors[] = 'A scan is already underway!';
+	//let's set it up!
 	else
 	{
-		$results = array();
+		//start the clock!
+		update_option('looksee_scan_started', looksee_microtime());
+		update_option('looksee_scan_finished', 0);
 
-		//--------------------------------------------------
-		//Load the core checksums?
 
-		if(intval($_POST["scan_wpcore"]) === 1 || intval($_POST["scan_wpadmin"]) === 1 || intval($_POST["scan_wpincludes"]) === 1 || intval($_POST["scan_custom"]) === 1)
+		//remove entries for custom files that were missing (as of last scan)
+		$wpdb->query("DELETE FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND NOT(LENGTH(`md5_found`))");
+
+		//update checksums for custom files (using found values from last scan)
+		$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_expected`=`md5_found` WHERE NOT(LENGTH(`wp`))");
+
+		//determine whether there are new files to scan
+		$files_actual = looksee_readdir(ABSPATH);
+		sort($files_actual);
+		$files_db = array();
+		$dbResult = mysql_query("SELECT `file` FROM `{$wpdb->prefix}looksee_files` ORDER BY `file` ASC");
+		if(mysql_num_rows($dbResult))
 		{
-			$md5_core = looksee_core_checksums();
-			if(!count($md5_core))
-			{
-				$errors[] = 'The file database for your version of WP (' . get_bloginfo('version') . ') could not be loaded, either due to restrictive server configurations or file corruption.  Several scans are unavailable as a result.';
-				$support_version = false;
-			}
+			while($Row = mysql_fetch_assoc($dbResult))
+				$files_db[] = $Row["file"];
 		}
-
-		//--------------------------------------------------
-		//Load the custom checksums?
-
-		if(intval($_POST["scan_custom"]) === 1)
-			$crc32_custom = looksee_custom_checksums();
-
-		//--------------------------------------------------
-		//Verify WordPress core files
-
-		if(intval($_POST["scan_wpcore"]) === 1 && $support_version && $support_md5)
+		$files_new = array_diff($files_actual, $files_db);
+		unset($files_actual);
+		unset($files_db);
+		if(count($files_new))
 		{
-			looksee_clock_start();
-			//keep track of missing files
-			$missing = array();
-			//keep track of altered files
-			$altered = array();
-
-			$results[] = '--------------------------------------------------';
-			$results[] = 'Verifying WordPress core files...';
-
-			//cycle through all standard core files
-			foreach($md5_core AS $f=>$c)
+			$inserts = array();
+			foreach($files_new AS $f)
 			{
-				if(!file_exists(looksee_straighten_windows(ABSPATH . $f)))
-					$missing[] = $f;
-				elseif($c !== md5_file(looksee_straighten_windows(ABSPATH . $f)))
-					$altered[] = $f;
-			}
-
-			//compile results of missing files check
-			$results[] = "\t" . count($missing) . ' file' . (count($missing) === 1 ? ' was' : 's were') . ' missing.';
-			if(count($missing))
-			{
-				//disclaimer
-				$results[] = "\t**NOTE** Missing files generally indicate WordPress was incompletely installed.  You can fix these errors by re-installing WordPress.";
-				foreach($missing AS $f)
-					$results[] = "\t\t[missing] $f";
-			}
-
-			//compile results of altered files check
-			$results[] = "\t" . count($altered) . ' file' . (count($altered) === 1 ? ' has' : 's have') . ' been altered from their original state.';
-			if(count($altered))
-			{
-				//disclaimer
-				$results[] = "\t**NOTE** Altered files should be manually reviewed to ensure they do not contain code injected by a hacker.  If you are unsure, simply override them with a fresh copy downloaded from WordPress.";
-				$results[] = "\t**NOTE** To keep things interesting, some servers will automatically convert the line ending format or file encoding of text documents when uploaded.  These changes are generally innocuous and can be ignored.";
-				foreach($altered AS $f)
-					$results[] = "\t\t[altered] $f";
-			}
-
-			//update last-run timestamp
-			update_option('looksee_last_scan_wpcore', current_time('timestamp'));
-
-			$results[] = "\tScanned " . count($md5_core) . " files in " . looksee_clock_finish() . " seconds.";
-			$results[] = "";
-			unset($missing);
-			unset($altered);
-		}
-
-		//--------------------------------------------------
-		//Extra files in wp-admin/ and/or wp-includes/
-
-		foreach(array('wp-admin','wp-includes') AS $where)
-		{
-			if(intval($_POST["scan_" . preg_replace('/[^a-z]/i', '', $where)]) === 1 && $support_version)
-			{
-				looksee_clock_start();
-				$results[] = '--------------------------------------------------';
-				$results[] = "Scanning $where/ for unexpected files...";
-				//extra files?
-				$found = looksee_readdir(looksee_straighten_windows(ABSPATH . $where));
-				$extra = array_diff($found, array_keys($md5_core));
-
-				//compile results of extra files check
-				$results[] = "\t" . count($extra) . ' unexpected file' . (count($extra) === 1 ? ' was' : 's were') . ' found.';
-				if(count($extra))
+				//add to the database in blocks of 250
+				if(count($inserts) === 250)
 				{
-					$results[] = "\t**NOTE** User content doesn't belong in $where/, so unexpected files are generally going to be malicious or leftovers from old versions of WordPress, either of which can be safely deleted.";
-					foreach($extra AS $f)
-						$results[] = "\t\t[???] $f";
+					$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES ('" . implode("'),('", $inserts) . "')");
+					$inserts = array();
 				}
-
-				//update last-run timestamp
-				update_option('looksee_last_scan_' . preg_replace('/[^a-z]/i', '', $where), current_time('timestamp'));
-
-				$results[] = "\tFinished in " . looksee_clock_finish() . " seconds.";
-				$results[] = "";
-				unset($extra);
-				unset($found);
+				$inserts[] = mysql_real_escape_string($f);
 			}
+			//add whatever's left to add
+			$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES ('" . implode("'),('", $inserts) . "')");
+			unset($inserts);
 		}
+		unset($files_new);
 
-		//--------------------------------------------------
-		//Scripts in wp-content/uploads/
+		//queue up the files!
+		$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_found`='', `queued`=1");
 
-		if(intval($_POST["scan_wpuploads"]) === 1)
-		{
-			looksee_clock_start();
-			$results[] = '--------------------------------------------------';
-			$results[] = "Scanning wp-content/uploads/ for scripts...";
+		echo '<div class="updated fade">Let\'s have a look-see!</div>';
 
-			$scripts = looksee_readdir(looksee_straighten_windows(ABSPATH . 'wp-content/uploads'), array('php','php5','php4','php3','xml','html','js','asp','vb','rb'));
-
-			//compile results of script files check
-			$results[] = "\t" . count($scripts) . ' unexpected file' . (count($scripts) === 1 ? ' was' : 's were') . ' found in your uploads directory.';
-			if(count($scripts))
-			{
-				$results[] = "\t**NOTE** It is unusual to intentionally upload non-media files to WordPress, so regard these files with suspicion.";
-				foreach($scripts AS $f)
-					$results[] = "\t\t[???] $f";
-			}
-
-			//update last-run timestamp
-			update_option('looksee_last_scan_wpuploads', current_time('timestamp'));
-
-			$results[] = "\tFinished in " . looksee_clock_finish() . " seconds.";
-			$results[] = "";
-			unset($scripts);
-		}
-
-		//--------------------------------------------------
-		//Custom file changes
-
-		if(intval($_POST['scan_custom']) === 1 && $support_version && $support_crc32 && $support_custom)
-		{
-			looksee_clock_start();
-			$results[] = '--------------------------------------------------';
-			$results[] = "Scanning custom files for changes";
-
-			//all files not part of WP core
-			$custom_files = array_diff(looksee_readdir(looksee_straighten_windows(ABSPATH)), array_keys($md5_core), array(looksee_straighten_windows(str_replace(ABSPATH,'',CRC32_CUSTOM_FILE))));
-			sort($custom_files);
-			//ultimately this will produce the new custom.md5
-			$crc32_custom_new = array();
-			//keep track of new files
-			$extra = array_diff($custom_files, array_keys($crc32_custom));
-			//keep track of altered files
-			$altered = array();
-			//keep track of missing files
-			$missing = array_diff(array_keys($crc32_custom), $custom_files);
-
-			//cycle through the current list of files and see what's changed
-			foreach($custom_files AS $f)
-			{
-				$crc32_custom_new[$f] = hash_file('crc32', looksee_straighten_windows(ABSPATH . $f));
-				if(array_key_exists($f, $crc32_custom) && $crc32_custom_new[$f] !== $crc32_custom[$f])
-					$altered[] = $f;
-			}
-
-			//compile results of extra files check
-			$results[] = "\t" . count($extra) . ' new file' . (count($extra) === 1 ? ' was' : 's were') . ' found.';
-			if(!count($crc32_custom))
-				$results[] = "\t**NOTE** The custom file database was empty so no comparisons can be made, however the results will be used for comparison next time you run the scan.";
-			//only list new files if there was no previous scan
-			elseif(count($extra))
-			{
-				foreach($extra AS $f)
-					$results[] = "\t\t[new] $f";
-			}
-
-			//compile results for altered and missing files
-			foreach(array('altered','missing') AS $status)
-			{
-				$results[] = "\t" . count(${$status}) . " $status file" . (count(${$status}) === 1 ? ' was' : 's were') . ' found.';
-				if(count(${$status}))
-				{
-					foreach(${$status} AS $f)
-						$results[] = "\t\t[$status] $f";
-				}
-			}
-
-			//save results
-			if(false !== ($handle = @fopen(CRC32_CUSTOM_FILE, "wb")))
-			{
-				foreach($crc32_custom_new AS $f=>$c)
-				{
-					$line = "$c  $f\n";
-					@fwrite($handle, $line, strlen($line));
-				}
-				@fclose($handle);
-			}
-			else
-				$errors[] = 'The custom CRC32 checksum file (' . CRC32_CUSTOM_FILE . ') is not writeable, so the custom scan has been disabled.  See the <a href="http://wordpress.org/extend/plugins/look-see-security-scanner/faq/" title="FAQ" target="_blank">FAQ</a> for help.';
-
-			//update last-run timestamp
-			update_option('looksee_last_scan_custom', current_time('timestamp'));
-
-			$results[] = "\tScanned " . count($custom_files) . " files in " . looksee_clock_finish() . " seconds.";
-			$results[] = "";
-			unset($custom_files);
-			unset($extra);
-			unset($altered);
-			unset($missing);
-			unset($crc32_custom_new);
-		}
-
+		//now we are scanning...
+		$is_scanning = true;
 	}
 }
 
 
 
 //--------------------------------------------------
-//Error output?
+?>
+<style type="text/css">
+	.looksee-scan-description {
+		text-decoration: none;
+		font-weight: bold;
+	}
+	.looksee-scan-description:hover {
+		text-decoration: underline;
+	}
+	.form-table {
+		clear: left!important;
+	}
+	#looksee-scan-bar{
+		height: 15px;
+		width: auto;
+		padding: 0;
+		margin: 0;
+		border: 0;
+		background-color: #464645;
+		background-image: -ms-linear-gradient(bottom,#373737,#464646 5px);
+		background-image: -moz-linear-gradient(bottom,#373737,#464646 5px);
+		background-image: -o-linear-gradient(bottom,#373737,#464646 5px);
+		background-image: -webkit-gradient(linear,left bottom,left top,from(#373737),to(#464646));
+		background-image: -webkit-linear-gradient(bottom,#373737,#464646 5px);
+		background-image: linear-gradient(bottom,#373737,#464646 5px);
+		overflow: hidden;
+	}
+	#looksee-scan-label-percent {
+		width: 50px;
+		display: inline-block;
+		height: 15px;
+		line-height: 15px;
+	}
+	#looksee-scan-label {
+		display: inline-block;
+		width: auto;
+		height: 15px;
+		line-height: 15px;
+	}
+	#looksee-loading {
+		width: 16px;
+		height: 16px;
+		float: left;
+		margin-right: 10px;
+		border: 0;
+	}
+	#looksee-scan-results li {
+		line-height: 15px;
+	}
+	#looksee-scan-results li.looksee-status {
+		padding-left: 20px;
+		height: 15px;
+		background: transparent url('<?php echo plugins_url('images/status-sprite.png', __FILE__); ?>') no-repeat scroll 0 0;
+		font-weight: bold;
+	}
+	#looksee-scan-results li.looksee-status-bad {
+		background-position: 0 -20px;
+		cursor: pointer;
+	}
+	#looksee-scan-results li.looksee-status-details {
+		display: none;
+		padding-left: 40px;
+	}
+	#looksee-scan-results li.looksee-status-details-description {
+		padding-left: 20px;
+		color: #666;
+		font-style: italic;
+	}
+</style>
+<div class="wrap">
 
+	<h2>Look-See Security Scanner</h2>
+<?php
+//error output
 if(count($errors))
 {
 	foreach($errors AS $e)
 		echo '<div class="error fade"><p>' . $e . '</p></div>';
 }
-
-
-
 ?>
-<div class="wrap">
+	<div class="metabox-holder has-right-sidebar">
 
-	<h2>Look-See Security Scanner</h2>
+		<div class="inner-sidebar">
 
-	<form id="form-looksee-core-scan" method="post" action="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>">
-	<?php wp_nonce_field('looksee-core-scanner'); ?>
-
-	<h3>Scan(s) to Run</h3>
-	<table class="form-table">
-		<tbody>
-			<?php if($support_version && $support_md5) { ?>
-			<tr valign="top">
-				<th scope="row">
-					<label for="scan_wpcore">Verify WordPress core files<?php
-					$lastrun = (int) get_option('looksee_last_scan_wpcore', 0);
-					if($lastrun > 0)
-						echo  '<br><span class="description">last run ' . date("Y-m-d H:i:s", $lastrun) . '</span>';
-					?></label>
-				</th>
-				<td>
-					<input type="checkbox" name="scan_wpcore" id="scan_wpcore" value="1" checked=checked /> We know exactly what a clean installation of WordPress is supposed to contain.  This scan searches the file database corresponding to your version of WordPress and reports any files that are missing or altered.  Missing files are indicative of a screwy (e.g. incomplete) installation, while altered files might indicate malware infection.
-				</td>
-			</tr>
-			<?php } ?>
-			<?php if($support_version) { ?>
-			<tr valign="top">
-				<th scope="row">
-					<label for="scan_wpadmin">Extra files in wp-admin/<?php
-					$lastrun = (int) get_option('looksee_last_scan_wpadmin', 0);
-					if($lastrun > 0)
-						echo  '<br><span class="description">last run ' . date("Y-m-d H:i:s", $lastrun) . '</span>';
-					?></label>
-				</th>
-				<td>
-					<input type="checkbox" name="scan_wpadmin" id="scan_wpadmin" value="1" checked=checked /> Legitimate user content shouldn't really end up in the wp-admin/ folder.  This scan searches for files which are not part of a clean installation.
-				</td>
-			</tr>
-			<?php } ?>
-			<?php if($support_version) { ?>
-			<tr valign="top">
-				<th scope="row">
-					<label for="scan_wpincludes">Extra files in wp-includes/<?php
-					$lastrun = (int) get_option('looksee_last_scan_wpincludes', 0);
-					if($lastrun > 0)
-						echo  '<br><span class="description">last run ' . date("Y-m-d H:i:s", $lastrun) . '</span>';
-					?></label>
-				</th>
-				<td>
-					<input type="checkbox" name="scan_wpincludes" id="scan_wpincludes" value="1" checked=checked /> As with the above, wp-includes/ is no place for legitimate user content.  This scan searches for files which are not part of a clean installation.
-				</td>
-			</tr>
-			<?php } ?>
-			<tr valign="top">
-				<th scope="row">
-					<label for="scan_wpuploads">Scripts in wp-content/uploads/<?php
-					$lastrun = (int) get_option('looksee_last_scan_wpuploads', 0);
-					if($lastrun > 0)
-						echo  '<br><span class="description">last run ' . date("Y-m-d H:i:s", $lastrun) . '</span>';
-					?></label>
-				</th>
-				<td>
-					<input type="checkbox" name="scan_wpuploads" id="scan_wpuploads" value="1" checked=checked /> The wp-content/uploads folder can quickly become labyrinthine and so is an excellent place for hackers to hide backdoors.  This scan searches the uploads folder for executable scripts.
-				</td>
-			</tr>
-			<?php if($support_version && $support_md5 && $support_custom) { ?>
-			<tr valign="top">
-				<th scope="row">
-					<label for="scan_custom">Custom file changes<?php
-					$lastrun = (int) get_option('looksee_last_scan_custom', 0);
-					if($lastrun > 0)
-						echo  '<br><span class="description">last run ' . date("Y-m-d H:i:s", $lastrun) . '</span>';
-					?></label>
-				</th>
-				<td>
-					<input type="checkbox" name="scan_custom" id="scan_custom" value="1" /> This scan compares all non-core files against what things looked like the last time it was run, reporting any new, missing, or altered files.<br>
-					<span class="description">NOTE: the custom file database is reset whenever this plugin is updated, so it is a good idea to run this scan prior to updating to ensure no changes go unnoticed.</span>
-				</td>
-			</tr>
-			<?php } ?>
-			<tr valign="top">
-				<th scope="row">&nbsp;</th>
-				<td>
-					<input type="submit" value="Scan Now" />
-					<p class="description">If the server hosting your web site is slow or if your blog is gratuitously large, it might be best to run these tests one at a time.</p>
-				</td>
-			</tr>
-		</tbody>
-	</table>
-	</form>
-
+			<!--start available scans -->
+			<div class="postbox">
 <?php
-//if there are no results, we can quickly exit
-if(false === $results)
-{
-	echo '</div>';
-	exit;
-}
+//present the form to start a scan
+if(!$is_scanning) {
 ?>
-	<h3>Results</h3>
-	<table class="form-table">
-		<tbody>
-			<tr valign="top" id="tr-results" style="">
-				<td>
-					<textarea style="width: 100%; height: 400px;"><?php echo str_replace(array('<','>'), array('&lt;','&gt;'), implode("\n", $results)); ?></textarea>
-				</td>
-			</tr>
-		</tbody>
-	</table>
+				<form id="form-looksee-core-scan" method="post" action="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>">
+				<?php wp_nonce_field('looksee-core-scanner'); ?>
+				<h3 class="hndle">Run Scan Now</h3>
+				<div class="inside">
+					<ul>
+						<li>
+							<input type="submit" value="Scan Now" />
+						</li>
+					</ul>
+				</div>
+				</form>
+<?php
+}//end scan button
+//otherwise if a scan is in progress, let's show the progress!
+else {
+	$total = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files`");
+	$completed = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files` WHERE `queued`=0");
+	$percent = round(100 * $completed / $total, 0);
+?>
+				<h3 class="hndle">Scan Progress</h3>
+				<div class="inside">
+					<ul>
+						<li><span id="looksee-scan-label-percent"><?php echo $percent; ?>%</span><span id="looksee-scan-label">Scanned <?php echo "$completed of $total"; ?></span></li>
+						<li><div id="looksee-scan-bar" style="width: <?php echo $percent; ?>%;">&nbsp;</div></li>
+					</ul>
+				</div>
+<script type="text/javascript">
 
+	//the actual scanning is done via AJAX so it can be split into chunks with progress updates
+	function looksee_scan(){
+		jQuery.post(ajaxurl, {action:'looksee_scan',looksee_nonce:'<?php echo wp_create_nonce("l00ks33n0nc3");?>'}, function(data){
+
+			response = jQuery.parseJSON(data);
+
+			//if the response was crap OR if we are done, reload the page
+			if(response.total==undefined || response.completed==undefined || response.percent==undefined || response.total==response.completed)
+				window.location.reload();
+
+			//otherwise let's update the progress
+			jQuery("#looksee-scan-label-percent").text(response.percent + '%');
+			jQuery("#looksee-scan-label").text('Scanned ' + response.completed + ' of ' + response.total);
+			jQuery("#looksee-scan-bar").css('width',response.percent + '%');
+
+			looksee_scan();
+		});
+	}
+
+	jQuery(document).ready(function(){ looksee_scan(); });
+
+	function htmlspecialchars(string){ return jQuery('<span>').text(string).html(); }
+
+</script>
+<?php
+}//end scan progress
+?>
+			</div>
+			<!--end available scans-->
+
+		</div><!--end sidebar-->
+
+		<div id="post-body-content" class="has-sidebar">
+			<div class="has-sidebar-content">
+
+				<!--start scan history-->
+				<div class="postbox">
+<?php
+if($is_scanning)
+	echo '<h3 class="hndle">Scan Results</h3><div class="inside"><p><img src="' . plugins_url('images/loading1.gif', __FILE__) . '" id="looksee-loading" /> A report will be generated once the scan is completed.</p>';
+elseif(get_option('looksee_scan_finished', 0) > 0)
+{
+	//let's get the date/time details
+	$started = (double) get_option('looksee_scan_started', 0);
+	$finished = (double) get_option('looksee_scan_finished', 0);
+	$h = $m = 0;
+	$s = round($finished - $started, 5);
+	$duration = array();
+	//hours?
+	if($s >= 60 * 60)
+	{
+		$h = floor($s/60/60);
+		$s -= $h * 60 * 60;
+		$duration[] = "$h hour" . ($h === 1 ? '' : 's');
+	}
+	//minutes?
+	if($s >= 60)
+	{
+		$m = floor($s/60);
+		$s -= $m * 60;
+		$duration[] = "$m minute" . ($m === 1 ? '' : 's');
+	}
+	//seconds?
+	if($s > 0)
+		$duration[] = (count($duration) ? 'and ' : '') . "$s second" . ($s === 1 ? '' : 's');
+
+	//now some file details...
+	$total = $wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files`");
+	$altered = array();
+	$core = array();
+	$extra = array();
+	$missing = array();
+	$suspicious = array();
+	$previous_custom = intval($wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND LENGTH(`md5_expected`)")) > 0;
+	//grab checksum mismatches
+	$dbResult = mysql_query("SELECT `file`, `md5_expected`, `md5_found`, `wp` FROM `{$wpdb->prefix}looksee_files` WHERE NOT(`md5_expected`=`md5_found`) ORDER BY `file` ASC");
+	if(mysql_num_rows($dbResult))
+	{
+		while($Row = mysql_fetch_assoc($dbResult))
+		{
+
+			if(!strlen($Row["md5_expected"]))
+			{
+				//ignore extra files if there is not anything previous to compare them with
+				if($previous_custom)
+					$extra[] = $Row["file"];
+			}
+			elseif(!strlen($Row["md5_found"]))
+				$missing[] = $Row["file"];
+			else
+				$altered[] = $Row["file"];
+
+			//we'll want to draw attention to files belonging to the WP core
+			if(strlen($Row["wp"]))
+				$core[] = $Row["file"];
+		}
+	}
+	//look for files that aren't part of the core, but are lurking around in core places!
+	$dbResult = mysql_query("SELECT `file` FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND LENGTH(`md5_found`) AND (`file` LIKE 'wp-admin/%' OR `file` LIKE 'wp-includes/%' OR `file` LIKE 'wp-content/uploads/%.php') ORDER BY `file` ASC");
+	if(mysql_num_rows($dbResult))
+	{
+		while($Row = mysql_fetch_assoc($dbResult))
+			$suspicious[] = $Row["file"];
+	}
+
+	//explanations for the individual tests
+	$info = array(
+		'altered'=>'The following file(s) have been modified since the last Look-See scan was run.  This could be utterly innocuous (like if you\'ve updated a plugin), or it might indicate site exploitation.  To be sure, manually review the list.',
+		'altered_core'=>'The following file(s) belonging to the WordPress core have been modified from their original state.  This may indicate your blog has been exploited, or it may be that your server modified the files automatically when they were uploaded (see the <a href="http://wordpress.org/extend/plugins/look-see-security-scanner/faq/" target="_blank">plugin FAQ</a> for more information about this annoyance).  Please review the list or, if in doubt, replace the file(s) with freshly downloaded copies from WordPress.',
+		'extra'=>'The following file(s) have magically appeared since the last Look-See scan was run.  Please review the list to ensure everything is expected.',
+		'missing'=>'The following file(s) have been removed since the last Look-See scan was run.  It is rare for a hacker to delete files, but have a look just to make sure.',
+		'missing_core'=>'The follow core WordPress file(s) are missing and should be replaced with freshly downloaded copies, otherwise your site might not work correctly.',
+		'suspicious'=>'The following unexpected file(s) should be reviewed and probably deleted. Non-core files appearing in wp-admin/ or wp-includes/ are almost certainly either garbage left over from previous versions of WordPress (which can be safely deleted) or scripts injected by hackers (which definitely should be deleted).  This scan also looks for PHP files in your wp-content/uploads folder, which unless you\'ve put them there yourself, are almost certainly backdoors left by hackers who have exploited your site.  Regardless, review these entries carefully.'
+	);
+?>
+			<h3 class="hndle">Scan Results: <?php echo date("M j Y", floor($finished)); ?></h3>
+				<div class="inside">
+					<p><b>Scanned <?php echo $total; ?> files in <?php echo implode(", ", $duration); ?>.</b></p>
+					<ul id="looksee-scan-results">
+						<?php
+						foreach(array('altered','extra','missing','suspicious') AS $status)
+						{
+							echo '<li data-scan="' . $status . '" class="looksee-status ' . (count(${$status}) ? 'looksee-status-bad' : 'looksee-status-good') . '">Found ' . count(${$status}) . " $status file" . (count(${$status}) === 1 ? '' : 's') . '</li>';
+							if(count(${$status}))
+							{
+								$tmp = array_intersect(${$status}, $core);
+								if(count($tmp))
+								{
+									echo '<li class="looksee-status-details looksee-status-details-' . $status . ' looksee-status-details-description">' . $info[$status . "_core"] . '</li>';
+									foreach($tmp AS $f)
+										echo '<li class="looksee-status-details looksee-status-details-' . $status . '">' . htmlspecialchars(looksee_straighten_windows(ABSPATH . $f)) . '</li>';
+								}
+								if(count($tmp) < count(${$status}))
+								{
+									echo '<li class="looksee-status-details looksee-status-details-' . $status . ' looksee-status-details-description">' . $info[$status] . '</li>';
+									foreach(${$status} AS $f)
+									{
+										if(!in_array($f, $core))
+											echo '<li class="looksee-status-details looksee-status-details-' . $status . '">' . htmlspecialchars(looksee_straighten_windows(ABSPATH . $f)) . '</li>';
+									}
+								}
+							}
+						}
+						?>
+					</ul>
+<?php
+}//end print results
+else
+	echo '<h3 class="hndle">Scan Results</h3><div class="inside"><p>There are no scan results to report.  Click the SCAN NOW button at right to begin!</p>';
+?>
+					</div>
+				</div>
+				<!--end scan history
+
+			</div><!--end .has-sidebar-content-->
+		</div><!--end .has-sidebar-->
 
 </div>
+
+<script type="text/javascript">
+	//toggle detailed display
+	jQuery("#looksee-scan-results li.looksee-status-bad").click(function(){
+		var obj = jQuery(".looksee-status-details-" + jQuery(this).attr('data-scan'));
+		if(obj.css('display') == 'none')
+			obj.css('display','block');
+		else
+			obj.css('display','none');
+	});
+</script>
