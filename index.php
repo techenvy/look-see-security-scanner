@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 3.4.2-6
+Version: 3.4.2-7
 Author: Josh Stoik
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -32,7 +32,7 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 //  Constants, globals, and variable handling
 //----------------------------------------------------------------------
 //the database version
-define('LOOKSEE_DB', '1.0.0');
+define('LOOKSEE_DB', '1.0.3');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //---------------------------------------------------------------------- end variables
@@ -57,6 +57,7 @@ function looksee_SQL(){
 	//the files to scan go here
 	// `id` numeric primary key
 	// `file` the relative file path
+	// `file_hash` a CRC32 hash of `file` to help create a case-sensitive unique key regardless of table charset
 	// `wp` the wordpress version if a core file, otherwise ''
 	// `md5_expected` the expected checksum
 	// `md5_found` the discovered checksum
@@ -64,18 +65,28 @@ function looksee_SQL(){
 	$sql = "CREATE TABLE {$wpdb->prefix}looksee_files (
   id bigint(15) NOT NULL AUTO_INCREMENT,
   file varchar(300) NOT NULL,
+  file_hash char(8) NOT NULL,
   wp varchar(10) DEFAULT '' NOT NULL,
   md5_expected char(32) DEFAULT '' NOT NULL,
   md5_found char(32) DEFAULT '' NOT NULL,
   queued tinyint(1) DEFAULT 0 NOT NULL,
   PRIMARY KEY  (id),
-  UNIQUE KEY file (file),
+  UNIQUE KEY file2 (file,file_hash),
   KEY wp (wp),
   KEY queued (queued)
 );";
 
 	require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 	dbDelta($sql);
+
+	//we have some tidying up to do when upgrading to 1.0.3
+	if(get_option('looksee_db_version','0.0.0') < '1.0.3')
+	{
+		//dbDelta doesn't remove old indexes, apparently
+		$wpdb->query("ALTER TABLE `{$wpdb->prefix}looksee_files` DROP INDEX `file`");
+		//quickly generate some file_hashes
+		$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `file_hash`=CRC32(`file`)");
+	}
 
 	update_option("looksee_db_version", LOOKSEE_DB);
 
@@ -117,7 +128,7 @@ function looksee_db_update(){
 
 				//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish
 				if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && strlen($file))
-					$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`wp`,`md5_expected`,`md5_found`,`queued`) VALUES ('$file','$wp_version','$md5','',0) ON DUPLICATE KEY UPDATE `wp`='$wp_version', `md5_expected`='$md5', `md5_found`='', `queued`=0");
+					$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`,`wp`,`md5_expected`,`md5_found`,`queued`) VALUES ('$file','" . hash('crc32',$file) . ",'$wp_version','$md5','',0) ON DUPLICATE KEY UPDATE `wp`='$wp_version', `md5_expected`='$md5', `md5_found`='', `queued`=0");
 			}
 		}
 
@@ -264,38 +275,36 @@ function looksee_support_md5(){
 //--------------------------------------------------
 //Recursively find all files in a directory
 //
-// @since 3.4.2
+// @since 3.4.2-7
 //
 // @param $dir directory to search
+// @param $files, by reference
 // @return array files or false
-function looksee_readdir($dir) {
+function looksee_readdir($dir, &$files) {
 
 	//no trailing slash
 	if(substr($dir, -1) == '/' || substr($dir, -1) == '\\')
 		$dir = substr($dir, 0, strlen($dir)-1);
 
-	//make sure this is a valid directory
-	if(!is_dir($dir))
+	if($handle = opendir($dir))
+	{
+		while(false !== ($file = readdir($handle)))
+		{
+			if($file != "." && $file != "..")
+			{
+				$path = looksee_straighten_windows($dir . '/' . $file);
+				if(is_dir($path))
+					looksee_readdir($path, $files);
+				else
+					$files[] = str_replace(ABSPATH, '', $path);
+			}
+		}
+		closedir($handle);
+	}
+	else
 		return false;
 
-	$contents = array();
-
-	//scan the directory
-	$cdir = scandir($dir);
-	foreach ($cdir as $k => $v)
-	{
-		if(!in_array($v,array(".","..")))
-		{
-			//recurse if $v is itself a directory
-			if(is_dir(looksee_straighten_windows($dir . DIRECTORY_SEPARATOR . $v)))
-				$contents = array_merge($contents, looksee_readdir(looksee_straighten_windows($dir . DIRECTORY_SEPARATOR . $v)));
-			//otherwise duly note it as a file
-			else
-				$contents[] = looksee_straighten_windows(str_replace(ABSPATH, '', $dir . DIRECTORY_SEPARATOR . $v));
-		}
-	}
-
-	return array_unique($contents);
+	return true;
 }
 
 //--------------------------------------------------

@@ -76,7 +76,6 @@ if(getenv("REQUEST_METHOD") === "POST")
 		update_option('looksee_scan_started', looksee_microtime());
 		update_option('looksee_scan_finished', 0);
 
-
 		//remove entries for custom files that were missing (as of last scan)
 		$wpdb->query("DELETE FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND NOT(LENGTH(`md5_found`))");
 
@@ -84,8 +83,11 @@ if(getenv("REQUEST_METHOD") === "POST")
 		$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_expected`=`md5_found` WHERE NOT(LENGTH(`wp`))");
 
 		//determine whether there are new files to scan
-		$files_actual = looksee_readdir(ABSPATH);
+		$files_actual = array();
+		looksee_readdir(ABSPATH, $files_actual);
 		sort($files_actual);
+		@set_time_limit(0);
+
 		$files_db = array();
 		$dbResult = mysql_query("SELECT `file` FROM `{$wpdb->prefix}looksee_files` ORDER BY `file` ASC");
 		if(mysql_num_rows($dbResult))
@@ -94,27 +96,28 @@ if(getenv("REQUEST_METHOD") === "POST")
 				$files_db[] = $Row["file"];
 		}
 		$files_new = array_diff($files_actual, $files_db);
+
+		//clear some resources, oof!
 		unset($files_actual);
 		unset($files_db);
+
+		//if there are new files, add them to the database so they'll get scanned
 		if(count($files_new))
 		{
 			$inserts = array();
-			//try to prevent a server timeout if things are taking a really long time
-			@set_time_limit(0);
 			foreach($files_new AS $f)
 			{
 				//add to the database in blocks
 				if(count($inserts) == LOOKSEE_SCAN_INTERVAL)
 				{
-					$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES ('" . implode("'),('", $inserts) . "')");
+					$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`) VALUES " . implode(',', $inserts));
 					$inserts = array();
-					//try to prevent a server timeout if things are taking a really long time
 					@set_time_limit(0);
 				}
-				$inserts[] = mysql_real_escape_string($f);
+				$inserts[] = "('" . mysql_real_escape_string($f) . "','" . hash('crc32',$f) . "')";
 			}
 			//add whatever's left to add
-			$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES ('" . implode("'),('", $inserts) . "')");
+			$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`) VALUES " . implode(',', $inserts));
 			unset($inserts);
 		}
 		unset($files_new);
@@ -128,10 +131,6 @@ if(getenv("REQUEST_METHOD") === "POST")
 		$is_scanning = true;
 	}
 }
-
-
-
-//--------------------------------------------------
 ?>
 <style type="text/css">
 	.looksee-scan-description {

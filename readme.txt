@@ -59,6 +59,11 @@ Don't count on it.  As a general rule, you should always be running the latest v
 
 == Changelog ==
 
+= 3.4.2-7 =
+* Bug fix: case-insensitive indexes could prevent scanning all files;
+* File system scanning now roughly 27% faster;
+* Added set_time_limit() to help prevent execution timeouts;
+
 = 3.4.2-6 =
 * Dramatically simplified scan process and reporting;
 * Queue-based scanning to improve support with slow servers;
@@ -84,6 +89,9 @@ Don't count on it.  As a general rule, you should always be running the latest v
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 3.4.2-7 =
+Fixed file name case-insensitivity issue and improved performance; it is recommended all users update.
 
 = 3.4.2-6 =
 Scan process and reporting has been dramatically simplified; additionally, support for slower servers has been greatly improved.
