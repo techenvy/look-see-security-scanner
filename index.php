@@ -80,7 +80,7 @@ function looksee_SQL(){
 	dbDelta($sql);
 
 	//we have some tidying up to do when upgrading to 1.0.3
-	if(get_option('looksee_db_version','0.0.0') < '1.0.3')
+	if(get_option('looksee_db_version','0.0.0') < '1.0.3' && get_option('looksee_db_version','0.0.0') !== '0.0.0')
 	{
 		//dbDelta doesn't remove old indexes, apparently
 		$wpdb->query("ALTER TABLE `{$wpdb->prefix}looksee_files` DROP INDEX `file`");
