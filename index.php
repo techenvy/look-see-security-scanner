@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 3.4.2-7
+Version: 3.5
 Author: Josh Stoik
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -114,7 +114,6 @@ function looksee_db_update(){
 	if(get_option('looksee_core_version','0.0.0') !== $wp_version && @file_exists($md5_core_file))
 	{
 		global $wpdb;
-		$wp_version = mysql_real_escape_string($wp_version);
 
 		//load core checksums from file
 		$tmp = explode("\n", @file_get_contents($md5_core_file));
@@ -128,7 +127,7 @@ function looksee_db_update(){
 
 				//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish
 				if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && strlen($file))
-					$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`,`wp`,`md5_expected`,`md5_found`,`queued`) VALUES ('$file','" . hash('crc32',$file) . ",'$wp_version','$md5','',0) ON DUPLICATE KEY UPDATE `wp`='$wp_version', `md5_expected`='$md5', `md5_found`='', `queued`=0");
+					$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`,`wp`,`md5_expected`,`md5_found`,`queued`) VALUES ('$file','" . hash('crc32',$file) . "','$wp_version','$md5','',0) ON DUPLICATE KEY UPDATE `wp`='$wp_version', `md5_expected`='$md5', `md5_found`='', `queued`=0");
 			}
 		}
 

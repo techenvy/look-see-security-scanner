@@ -3,7 +3,7 @@ Contributors: blobfolio
 Donate link: http://www.blobfolio.com
 Tags: security, scanner, vulnerabilities, files, validation, auditor, validator, checker
 Requires at least: 3.4.2
-Tested up to: 3.4.2
+Tested up to: 3.5
 Stable tag: trunk
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -59,6 +59,9 @@ Don't count on it.  As a general rule, you should always be running the latest v
 
 == Changelog ==
 
+= 3.5 =
+* Added compatibility with WordPress 3.5;
+
 = 3.4.2-7 =
 * Bug fix: case-insensitive indexes could prevent scanning all files;
 * File system scanning now roughly 27% faster;
@@ -89,6 +92,9 @@ Don't count on it.  As a general rule, you should always be running the latest v
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 3.5 =
+Added compatibility with WordPress 3.5!
 
 = 3.4.2-7 =
 Fixed file name case-insensitivity issue and improved performance; it is recommended all users update.
