@@ -89,10 +89,10 @@ if(getenv("REQUEST_METHOD") === "POST")
 		@set_time_limit(0);
 
 		$files_db = array();
-		$dbResult = mysql_query("SELECT `file` FROM `{$wpdb->prefix}looksee_files` ORDER BY `file` ASC");
-		if(mysql_num_rows($dbResult))
+		$dbResult = $wpdb->get_results("SELECT `file` FROM `{$wpdb->prefix}looksee_files` ORDER BY `file` ASC", ARRAY_A);
+		if($wpdb->num_rows)
 		{
-			while($Row = mysql_fetch_assoc($dbResult))
+			foreach($dbResult AS $Row)
 				$files_db[] = $Row["file"];
 		}
 		$files_new = array_diff($files_actual, $files_db);
@@ -324,12 +324,11 @@ elseif(get_option('looksee_scan_finished', 0) > 0)
 	$suspicious = array();
 	$previous_custom = intval($wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND LENGTH(`md5_expected`)")) > 0;
 	//grab checksum mismatches
-	$dbResult = mysql_query("SELECT `file`, `md5_expected`, `md5_found`, `wp` FROM `{$wpdb->prefix}looksee_files` WHERE NOT(`md5_expected`=`md5_found`) ORDER BY `file` ASC");
-	if(mysql_num_rows($dbResult))
+	$dbResult = $wpdb->get_results("SELECT `file`, `md5_expected`, `md5_found`, `wp` FROM `{$wpdb->prefix}looksee_files` WHERE NOT(`md5_expected`=`md5_found`) ORDER BY `file` ASC", ARRAY_A);
+	if($wpdb->num_rows)
 	{
-		while($Row = mysql_fetch_assoc($dbResult))
+		foreach($dbResult AS $Row)
 		{
-
 			if(!strlen($Row["md5_expected"]))
 			{
 				//ignore extra files if there is not anything previous to compare them with
@@ -347,10 +346,10 @@ elseif(get_option('looksee_scan_finished', 0) > 0)
 		}
 	}
 	//look for files that aren't part of the core, but are lurking around in core places!
-	$dbResult = mysql_query("SELECT `file` FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND LENGTH(`md5_found`) AND (`file` LIKE 'wp-admin/%' OR `file` LIKE 'wp-includes/%' OR `file` LIKE 'wp-content/uploads/%.php') ORDER BY `file` ASC");
-	if(mysql_num_rows($dbResult))
+	$dbResult = $wpdb->get_results("SELECT `file` FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND LENGTH(`md5_found`) AND (`file` LIKE 'wp-admin/%' OR `file` LIKE 'wp-includes/%' OR `file` LIKE 'wp-content/uploads/%.php') ORDER BY `file` ASC", ARRAY_A);
+	if($wpdb->num_rows)
 	{
-		while($Row = mysql_fetch_assoc($dbResult))
+		foreach($dbResult AS $Row)
 			$suspicious[] = $Row["file"];
 	}
 

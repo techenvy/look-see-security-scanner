@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 3.5
+Version: 3.5-2
 Author: Josh Stoik
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -202,15 +202,15 @@ function looksee_scan() {
 		if(check_ajax_referer( 'l00ks33n0nc3', 'looksee_nonce', false) && intval($wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files` WHERE `queued`=1")) > 0)
 		{
 			//files to check
-			$dbResult =  mysql_query("SELECT `file` FROM `{$wpdb->prefix}looksee_files` WHERE `queued`=1 ORDER BY `id` ASC LIMIT " . LOOKSEE_SCAN_INTERVAL);
-			if(mysql_num_rows($dbResult))
+			$dbResult =  $wpdb->get_results("SELECT `id`, `file` FROM `{$wpdb->prefix}looksee_files` WHERE `queued`=1 ORDER BY `id` ASC LIMIT " . LOOKSEE_SCAN_INTERVAL, ARRAY_A);
+			if($wpdb->num_rows)
 			{
-				while($Row = mysql_fetch_assoc($dbResult))
+				foreach($dbResult AS $Row)
 				{
 					if(!@file_exists(looksee_straighten_windows(ABSPATH . $Row["file"])) || false === ($md5 = md5_file(looksee_straighten_windows(ABSPATH . $Row["file"]))))
 						$md5 = '';
 
-					$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_found`='$md5', `queued`=0 WHERE `file`='" . mysql_real_escape_string($Row["file"]) . "'");
+					$wpdb->update("{$wpdb->prefix}looksee_files", array('md5_found'=>$md5, 'queued'=>0), array('id'=>$Row["id"]), array('%s','%d'), '%d');
 				}
 			}
 			else
