@@ -253,7 +253,12 @@ else {
 	function looksee_scan(){
 		jQuery.post(ajaxurl, {action:'looksee_scan',looksee_nonce:'<?php echo wp_create_nonce("l00ks33n0nc3");?>'}, function(data){
 
-			response = jQuery.parseJSON(data);
+			try {
+				response = jQuery.parseJSON(data);
+			}
+			catch(e){
+				window.location.reload();
+			}
 
 			//if the response was crap OR if we are done, reload the page
 			if(response.total==undefined || response.completed==undefined || response.percent==undefined || response.total==response.completed)
