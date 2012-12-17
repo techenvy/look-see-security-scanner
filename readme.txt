@@ -59,6 +59,13 @@ Don't count on it.  As a general rule, you should always be running the latest v
 
 == Changelog ==
 
+= 3.5-3 =
+* New Setting: ignore files above a certain size;
+* Ability to abort scan in progress;
+* Ability to re-install WordPress core definitions;
+* Various performance improvements;
+* Better error handling;
+
 = 3.5-2 =
 * Fixed a potential file name bug;
 * Code clean up: all queries now run through $wpdb
@@ -96,6 +103,9 @@ Don't count on it.  As a general rule, you should always be running the latest v
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 3.5-3 =
+This release adds new features and performance improvements.
 
 = 3.5-2 =
 This release contains a potential bug fix and code clean up.

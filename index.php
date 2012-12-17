@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 3.5-2
+Version: 3.5-3
 Author: Josh Stoik
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -32,9 +32,38 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 //  Constants, globals, and variable handling
 //----------------------------------------------------------------------
 //the database version
-define('LOOKSEE_DB', '1.0.3');
+define('LOOKSEE_DB', '1.0.4');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
+
+//--------------------------------------------------
+//a get_option wrapper that deals with defaults and
+//bad data
+//
+// @since 3.5-3
+//
+// @param $option option_name
+// @return option_value or false
+function looksee_get_option($option){
+
+	switch($option)
+	{
+		//ignore files larger than X
+		case 'looksee_max_size':
+			$tmp = (int) get_option('looksee_max_size', 10);
+			if($tmp < 0)
+			{
+				$tmp = 10;
+				update_option('looksee_max_size', 10);
+			}
+			return $tmp;
+		//details about a scan's progress
+		case 'looksee_scan_report':
+			return get_option('looksee_scan_report', array('started'=>0,'ended'=>0,'errors'=>array(),'total'=>0,'scanned'=>0,'background'=>false));
+	}
+
+	return get_option($option, false);
+}
 //---------------------------------------------------------------------- end variables
 
 
@@ -61,7 +90,9 @@ function looksee_SQL(){
 	// `wp` the wordpress version if a core file, otherwise ''
 	// `md5_expected` the expected checksum
 	// `md5_found` the discovered checksum
+	// `md5_saved` an alternate checksum deemed by the user to be A-OK
 	// `queued` is it scheduled to be scanned? 1/0
+	// `skipped` was this file check skipped?
 	$sql = "CREATE TABLE {$wpdb->prefix}looksee_files (
   id bigint(15) NOT NULL AUTO_INCREMENT,
   file varchar(300) NOT NULL,
@@ -69,11 +100,14 @@ function looksee_SQL(){
   wp varchar(10) DEFAULT '' NOT NULL,
   md5_expected char(32) DEFAULT '' NOT NULL,
   md5_found char(32) DEFAULT '' NOT NULL,
+  md5_saved char(32) DEFAULT '' NOT NULL,
   queued tinyint(1) DEFAULT 0 NOT NULL,
+  skipped tinyint(1) DEFAULT 0 NOT NULL,
   PRIMARY KEY  (id),
   UNIQUE KEY file2 (file,file_hash),
   KEY wp (wp),
-  KEY queued (queued)
+  KEY queued (queued),
+  KEY skipped (skipped)
 );";
 
 	require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
@@ -105,43 +139,6 @@ function looksee_db_update(){
 	//update db structure
 	if(get_option('looksee_db_version', '0.0.0') !== LOOKSEE_DB)
 		looksee_SQL();
-
-	//some quick variables
-	$wp_version = mysql_real_escape_string(get_bloginfo('version'));
-	$md5_core_file = looksee_straighten_windows(dirname(__FILE__) . '/md5sums/' . get_bloginfo('version') . '.md5');
-
-	//update core checksums
-	if(get_option('looksee_core_version','0.0.0') !== $wp_version && @file_exists($md5_core_file))
-	{
-		global $wpdb;
-
-		//load core checksums from file
-		$tmp = explode("\n", @file_get_contents($md5_core_file));
-		foreach($tmp AS $line)
-		{
-			$line = trim($line);
-			if(strlen($line) > 34)
-			{
-				$md5 = substr($line, 0, 32);
-				$file = mysql_real_escape_string(trim(substr($line, 34)));
-
-				//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish
-				if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && strlen($file))
-					$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`,`wp`,`md5_expected`,`md5_found`,`queued`) VALUES ('$file','" . hash('crc32',$file) . "','$wp_version','$md5','',0) ON DUPLICATE KEY UPDATE `wp`='$wp_version', `md5_expected`='$md5', `md5_found`='', `queued`=0");
-			}
-		}
-
-		//clear old checksums from database, if necessary
-		$wpdb->query("DELETE FROM `{$wpdb->prefix}looksee_files` WHERE LENGTH(`wp`) AND NOT(`wp`='$wp_version')");
-
-		//if for some reason a scan was running, let's kill it now
-		$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `queued`=0");
-		update_option('looksee_scan_started',0);
-		update_option('looksee_scan_finished',0);
-
-		//save the version
-		update_option('looksee_core_version',$wp_version);
-	}
 
     return true;
 }
@@ -183,6 +180,153 @@ function looksee_security_scanner(){
 	return true;
 }
 
+//----------------------------------------------------------------------  end WP backend stuff
+
+
+
+//----------------------------------------------------------------------
+//  Scan-related functions
+//----------------------------------------------------------------------
+
+//--------------------------------------------------
+//Is a scan currently underway?
+//
+// @since 3.5-3
+//
+// @param n/a
+// @return true/false
+function looksee_is_scanning(){
+	$scan_report = looksee_get_option('looksee_scan_report');
+	return ($scan_report['started'] > 0 && $scan_report['ended'] === 0);
+}
+
+//--------------------------------------------------
+//Abort a scan
+//
+// @since 3.5-3
+//
+// @param $message alternate report message
+// @return true/false
+function looksee_scan_abort($message=null){
+	//if no scan is in progress, there's nothing to abort
+	if(!looksee_is_scanning())
+		return false;
+
+	//scan details
+	$scan_report = looksee_get_option('looksee_scan_report');
+
+	$scan_report['ended'] = looksee_microtime();
+	$scan_report['errors'][current_time('timestamp')] = (is_null($message) ? 'Scan aborted by user.' : $message);
+	update_option('looksee_scan_report', $scan_report);
+
+	global $wpdb;
+	$wpdb->update("{$wpdb->prefix}looksee_files", array('queued'=>0), array('queued'=>1), '%d', '%d');
+
+	return true;
+}
+
+//--------------------------------------------------
+//Reset the scan report
+//
+// @since 3.5-3
+//
+// @param n/a
+// @return true/false
+function looksee_scan_report_clear(){
+	//if a scan is already underway, we cannot clear the report
+	if(looksee_is_scanning())
+		return false;
+
+	//set the default
+	update_option('looksee_scan_report', array('started'=>0, 'ended'=>0, 'errors'=>array(), 'total'=>0, 'scanned'=>0, 'background'=>$background));
+
+	return true;
+}
+
+//--------------------------------------------------
+//Start a scan
+//
+// @since 3.5-3
+//
+// @param $background true/false
+// @return true/false
+function looksee_scan_start($background=false){
+	//if a scan is already underway, we cannot start
+	if(looksee_is_scanning())
+		return false;
+
+	if(!$background && !current_user_can('manage_options'))
+		return false;
+
+	global $wpdb;
+
+	//start the scan session!
+	looksee_scan_report_clear();
+	$scan_report = looksee_get_option('looksee_scan_report');
+	$scan_report['started'] = looksee_microtime();
+
+	//remove entries for custom files that were missing (as of last scan)
+	$wpdb->query("DELETE FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND NOT(LENGTH(`md5_found`))");
+
+	//update checksums for custom files (using found values from last scan)
+	$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_expected`=`md5_found` WHERE NOT(LENGTH(`wp`))");
+
+	//determine whether there are new files to scan
+	$files_actual = array();
+	looksee_readdir(ABSPATH, $files_actual);
+	sort($files_actual);
+
+	//a good place to extend PHP's time limit
+	@set_time_limit(0);
+
+	$files_db = array();
+	$dbResult = $wpdb->get_results("SELECT `file` FROM `{$wpdb->prefix}looksee_files` ORDER BY `file` ASC", ARRAY_A);
+	if($wpdb->num_rows)
+	{
+		foreach($dbResult AS $Row)
+			$files_db[] = $Row["file"];
+	}
+	$files_new = array_diff($files_actual, $files_db);
+
+	//clear some resources, oof!
+	unset($files_actual);
+	unset($files_db);
+
+	//if there are new files, add them to the database so they'll get scanned
+	if(count($files_new))
+	{
+		$inserts = array();
+		foreach($files_new AS $f)
+		{
+			//add to the database in blocks
+			if(count($inserts) == LOOKSEE_SCAN_INTERVAL)
+			{
+				$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`) VALUES " . implode(',', $inserts));
+				$inserts = array();
+
+				//a good place to extend PHP's time limit
+				@set_time_limit(0);
+			}
+			$inserts[] = "('" . mysql_real_escape_string($f) . "','" . hash('crc32',$f) . "')";
+		}
+		//add whatever's left to add
+		$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`) VALUES " . implode(',', $inserts));
+		unset($inserts);
+	}
+	unset($files_new);
+
+	//queue up the files!
+	$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_found`='', `queued`=1, `skipped`=0");
+
+	//how many files are we scanning for?
+	$scan_report["total"] = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files`");
+
+	//save status
+	update_option('looksee_scan_report', $scan_report);
+
+	return true;
+}
+
 //--------------------------------------------------
 //The AJAX handler responsible for actually scanning
 //files (in chunks)
@@ -201,29 +345,56 @@ function looksee_scan() {
 		$_POST = stripslashes_deep($_POST);  //take that, magic quotes!
 		if(check_ajax_referer( 'l00ks33n0nc3', 'looksee_nonce', false) && intval($wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files` WHERE `queued`=1")) > 0)
 		{
+			//are we limiting by filesize?
+			$limit = looksee_get_option('looksee_max_size') * 1024 * 1024;
+
 			//files to check
 			$dbResult =  $wpdb->get_results("SELECT `id`, `file` FROM `{$wpdb->prefix}looksee_files` WHERE `queued`=1 ORDER BY `id` ASC LIMIT " . LOOKSEE_SCAN_INTERVAL, ARRAY_A);
 			if($wpdb->num_rows)
 			{
 				foreach($dbResult AS $Row)
 				{
-					if(!@file_exists(looksee_straighten_windows(ABSPATH . $Row["file"])) || false === ($md5 = md5_file(looksee_straighten_windows(ABSPATH . $Row["file"]))))
+					//the full file path
+					$file = looksee_straighten_windows(ABSPATH . $Row["file"]);
+
+					//are we ignoring based on size?
+					if($limit > 0)
+					{
+						$size = @filesize($file);
+						if($size === false || $size > $limit)
+						{
+							//skip it
+							$wpdb->update("{$wpdb->prefix}looksee_files", array('md5_found'=>'', 'queued'=>0, 'skipped'=>1), array('id'=>$Row["id"]), array('%s','%d', '%d'), '%d');
+
+							continue;
+						}
+					}
+
+					//if the file doesn't exist
+					if(!@file_exists($file) || false === ($md5 = md5_file($file)))
 						$md5 = '';
 
 					$wpdb->update("{$wpdb->prefix}looksee_files", array('md5_found'=>$md5, 'queued'=>0), array('id'=>$Row["id"]), array('%s','%d'), '%d');
+
+					//a good place to extend PHP's time limit
+					@set_time_limit(0);
 				}
 			}
 			else
 				$xout["error"] = -1;
 
 			//update counts
-			$xout["total"] = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files`");
-			$xout["completed"] = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files` WHERE `queued`=0");
-			$xout["percent"] = round(100 * $xout["completed"] / $xout["total"],1);
+			$scan_report = looksee_get_option('looksee_scan_report');
+			$xout['total'] = $scan_report['total'] = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files`");
+			$xout['completed'] = $scan_report['scanned'] = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files` WHERE `queued`=0");
+			$xout['percent'] = round(100 * $xout['completed'] / $xout['total'],1);
 
 			//are we done?
-			if($xout["total"] === $xout["completed"])
-				update_option('looksee_scan_finished', looksee_microtime());
+			if($xout['total'] === $xout['completed'])
+				$scan_report['ended'] = looksee_microtime();
+
+			//save changes
+			update_option('looksee_scan_report', $scan_report);
 		}
 	}
 
@@ -232,7 +403,77 @@ function looksee_scan() {
 }
 add_action('wp_ajax_looksee_scan', 'looksee_scan');
 
-//----------------------------------------------------------------------  end WP backend stuff
+//----------------------------------------------------------------------  end scan-related functions
+
+
+
+//----------------------------------------------------------------------
+//  Core definitions
+//----------------------------------------------------------------------
+
+//--------------------------------------------------
+//Install core definitions
+//
+// @since 3.5-3
+//
+// @param $reinstall re-install if already installed?
+// @return true/false
+function looksee_install_core_definitions($reinstall=false){
+	if(!looksee_support_version() || ($reinstall === false && looksee_support_version_installed()))
+		return false;
+
+	//if a scan is in progress, we need to kill it:
+	if(looksee_is_scanning())
+		looksee_scan_abort();
+
+	//the version of wordpress installed
+	$wp_version = mysql_real_escape_string(get_bloginfo('version'));
+	//the file containing the core definitions for this version
+	$md5_core_file = looksee_straighten_windows(dirname(__FILE__) . '/md5sums/' . get_bloginfo('version') . '.md5');
+
+	global $wpdb;
+
+	//if we are forcing a refresh, let's delete all WP definitions to clear out any garbage that might be there
+	if($reinstall === true)
+		$wpdb->query("DELETE FROM `{$wpdb->prefix}looksee_files` WHERE LENGTH(`wp`)");
+
+	//load core checksums from file
+	$tmp = explode("\n", @file_get_contents($md5_core_file));
+	$inserts = array();
+	foreach($tmp AS $line)
+	{
+		//update in chunks!
+		if(count($inserts) === LOOKSEE_SCAN_INTERVAL)
+		{
+			$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`,`wp`,`md5_expected`) VALUES " . implode(',', $inserts) . " ON DUPLICATE KEY UPDATE `wp`='$wp_version', `md5_expected`=VALUES(`md5_expected`), `md5_saved`='',`md5_found`='',`skipped`=0");
+			$inserts = array();
+		}
+		$line = trim($line);
+		if(strlen($line) > 34)
+		{
+			$md5 = substr($line, 0, 32);
+			$file = mysql_real_escape_string(trim(substr($line, 34)));
+
+			//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish
+			if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && strlen($file))
+				$inserts[] = "('$file','" . hash('crc32',$file) . "','$wp_version','$md5')";
+		}
+	}
+	//save whatever's left over
+	if(count($inserts))
+		$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`,`wp`,`md5_expected`) VALUES " . implode(',', $inserts) . " ON DUPLICATE KEY UPDATE `wp`='$wp_version', `md5_expected`=VALUES(`md5_expected`), `md5_saved`='',`md5_found`='',`skipped`=0");
+
+	//clear old checksums from database, if necessary
+	if($reinstall === false)
+		$wpdb->query("DELETE FROM `{$wpdb->prefix}looksee_files` WHERE LENGTH(`wp`) AND NOT(`wp`='$wp_version')");
+
+	//and finally, let's clear the results of the last scan
+	looksee_scan_report_clear();
+
+	return true;
+}
+
+//----------------------------------------------------------------------  end core definitions
 
 
 
@@ -248,7 +489,7 @@ add_action('wp_ajax_looksee_scan', 'looksee_scan');
 // @param n/a
 // @return true/false
 function looksee_support_version(){
-	return get_option('looksee_core_version','0.0.0') === get_bloginfo('version');
+	return @file_exists(looksee_straighten_windows(dirname(__FILE__) . '/md5sums/' . get_bloginfo('version') . '.md5'));
 }
 
 //--------------------------------------------------
@@ -260,6 +501,18 @@ function looksee_support_version(){
 // @return true/false
 function looksee_support_md5(){
 	return function_exists('md5_file') && false !== md5_file(__FILE__);
+}
+
+//--------------------------------------------------
+//Appropriate core definitions installed?
+//
+// @since 3.5-3
+//
+// @param n/a
+// @return true/false
+function looksee_support_version_installed(){
+	global $wpdb;
+	return $wpdb->get_var("SELECT DISTINCT `wp` FROM `{$wpdb->prefix}looksee_files` WHERE LENGTH(`wp`) ORDER BY `wp` ASC LIMIT 1") === get_bloginfo('version');
 }
 
 //----------------------------------------------------------------------  end support functions
