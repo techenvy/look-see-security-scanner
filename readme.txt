@@ -19,6 +19,8 @@ Look-see Security Scanner is a relatively quick and painless way to locate the s
   * Search wp-includes/ for unexpected files;
   * Search wp-content/uploads/ for hidden PHP scripts;
   * Identify file changes since previous scan;
+  * Locate files left over from older versions of WordPress;
+  * Analyze configurations for oversights and vulnerabilities;
 
 == Installation ==
 
@@ -32,13 +34,9 @@ Look-see Security Scanner is a relatively quick and painless way to locate the s
 
 No, Look-See merely points out any irregularities it finds.  It is left to you to manually review any affected files to determine whether or not they pose a threat.
 
-= Can scans be automated? =
-
-Not yet, sorry.  Automated scans will probably be integrated into a future release, so stay tuned!
-
 = How long does it take for new file databases to be released? =
 
-We generally have a new file database ready to go within a day or two of a new WordPress release.
+We generally have a new file database ready to go within 24 hours of a new WordPress release (we're nerds).
 
 = Is there anything I can do to keep my server from modifying files as I upload them? That is annoying! =
 
@@ -52,12 +50,22 @@ Not necessarily. There could still be backdoors elsewhere on the server. As alwa
 
 Don't count on it.  As a general rule, you should always be running the latest version of WordPress anyway.  Not doing so is not safe.
 
+= Can scans be automated? =
+
+Not yet, sorry.  Automated scans will probably be integrated into a future release, so stay tuned!
+
 == Screenshots ==
 
 1. Realtime scan progress.
 2. Easy to understand scan results with expandable details and test explanations.
+3. Check configuration for oversights or vulnerabilities.
 
 == Changelog ==
+
+= 3.5-4 =
+* Files left over from old WP installations are better explained in results;
+* New Feature: Configuration Analysis looks for oversights and vulnerabilities in configuration;
+* Bug fix: renamed duplicate form field IDs;
 
 = 3.5-3 =
 * New Setting: ignore files above a certain size;
@@ -103,6 +111,9 @@ Don't count on it.  As a general rule, you should always be running the latest v
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 3.5-4 =
+This release adds new features: configuration analysis and old core file identification.
 
 = 3.5-3 =
 This release adds new features and performance improvements.

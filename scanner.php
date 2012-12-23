@@ -66,157 +66,93 @@ if(!looksee_support_version_installed())
 
 if(getenv("REQUEST_METHOD") === "POST")
 {
-	//bad nonce, no scan
-	if(!wp_verify_nonce($_POST['_wpnonce'],'looksee-core-scanner'))
-		$errors[] = 'Sorry the form had expired.  Please try again.';
-	//let's set it up!
-	else
+	//--------------------------------------------------
+	//Save Look-See settings
+	if($_POST["action"] == 'looksee_scan_settings')
 	{
-		//--------------------------------------------------
-		//Save Look-See settings
-		if($_POST["action"] == 'looksee_scan_settings')
+		//bad nonce, no scan
+		if(!wp_verify_nonce($_POST['nonce_settings'],'looksee_scan_settings'))
+			$errors[] = 'Sorry the form had expired.  Please try again.';
+		elseif(looksee_is_scanning())
+			$errors[] = 'Settings cannot be changed while a scan is underway!';
+		else
 		{
-			if(looksee_is_scanning())
-				$errors[] = 'Settings cannot be changed while a scan is underway!';
-			else
+			$looksee_settings = array();
+
+			//sanitize post data
+			$looksee_settings['looksee_max_size'] = (int) trim($_POST['looksee_max_size']);
+			if($looksee_settings['looksee_max_size'] < 0)
+				$looksee_settings['looksee_max_size'] = 10;
+
+			//save settings
+			$updated = 0;
+			foreach($looksee_settings AS $k=>$v)
 			{
-				$looksee_settings = array();
-
-				//sanitize post data
-				$looksee_settings['looksee_max_size'] = (int) trim($_POST['looksee_max_size']);
-				if($looksee_settings['looksee_max_size'] < 0)
-					$looksee_settings['looksee_max_size'] = 10;
-
-				//save settings
-				$updated = 0;
-				foreach($looksee_settings AS $k=>$v)
-				{
-					if(true === update_option($k, $v))
-						$updated++;
-				}
-
-				//if there were any changes, let's spread the good word
-				if($updated > 0)
-					echo '<div class="updated fade"><p>The settings have been successfully saved.</p></div>';
+				if(true === update_option($k, $v))
+					$updated++;
 			}
-		}
 
-		//--------------------------------------------------
-		//Prepare for a Look-See Scan
-		elseif($_POST["action"] == 'looksee_scan_start')
-		{
-			if(looksee_is_scanning())
-				$errors[] = 'A scan is already underway!';
-			elseif(false !== looksee_scan_start())
-				echo '<div class="updated fade"><p>Let\'s have a look-see!</p></div>';
-			else
-				$errors[] = 'The scan could not be started.';
+			//if there were any changes, let's spread the good word
+			if($updated > 0)
+				echo '<div class="updated fade"><p>The settings have been successfully saved.</p></div>';
 		}
+	}
 
-		//--------------------------------------------------
-		//Reset scan definitions
-		elseif($_POST["action"] == 'looksee_scan_definitions_reset')
-		{
-			if(looksee_is_scanning())
-				$errors[] = 'The core definitions cannot be reset while a scan is underway!';
-			elseif(false !== looksee_install_core_definitions(true))
-				echo '<div class="updated fade"><p>The core definitions for WordPress ' . $wp_version . ' have been successfully re-installed.</p></div>';
-			else
-				$errors[] = 'The core definitions were not reinstalled successfully.';
-		}
+	//--------------------------------------------------
+	//Prepare for a Look-See Scan
+	elseif($_POST["action"] == 'looksee_scan_start')
+	{
+		//bad nonce, no scan
+		if(!wp_verify_nonce($_POST['nonce_start'],'looksee_scan_start'))
+			$errors[] = 'Sorry the form had expired.  Please try again.';
+		elseif(looksee_is_scanning())
+			$errors[] = 'A scan is already underway!';
+		elseif(false !== looksee_scan_start())
+			echo '<div class="updated fade"><p>Let\'s have a look-see!</p></div>';
+		else
+			$errors[] = 'The scan could not be started.';
+	}
 
-		//--------------------------------------------------
-		//Abort a scan
-		elseif($_POST["action"] == 'looksee_scan_abort')
-		{
-			if(!looksee_is_scanning())
-				$errors[] = 'A scan is not currently running.';
-			elseif(false !== looksee_scan_abort())
-				echo '<div class="updated fade"><p>The scan has been aborted.</p></div>';
-			else
-				$errors[] = 'The scan could not be aborted.';
-		}
+	//--------------------------------------------------
+	//Reset scan definitions
+	elseif($_POST["action"] == 'looksee_scan_definitions_reset')
+	{
+		//bad nonce, no scan
+		if(!wp_verify_nonce($_POST['nonce_definitions_reset'],'looksee_scan_definitions_reset'))
+			$errors[] = 'Sorry the form had expired.  Please try again.';
+		elseif(looksee_is_scanning())
+			$errors[] = 'The core definitions cannot be reset while a scan is underway!';
+		elseif(false !== looksee_install_core_definitions(true))
+			echo '<div class="updated fade"><p>The core definitions for WordPress ' . $wp_version . ' have been successfully re-installed.</p></div>';
+		else
+			$errors[] = 'The core definitions were not reinstalled successfully.';
+	}
+
+	//--------------------------------------------------
+	//Abort a scan
+	elseif($_POST["action"] == 'looksee_scan_abort')
+	{
+		//bad nonce, no scan
+		if(!wp_verify_nonce($_POST['nonce_abort'],'looksee_scan_abort'))
+			$errors[] = 'Sorry the form had expired.  Please try again.';
+		elseif(!looksee_is_scanning())
+			$errors[] = 'A scan is not currently running.';
+		elseif(false !== looksee_scan_abort())
+			echo '<div class="updated fade"><p>The scan has been aborted.</p></div>';
+		else
+			$errors[] = 'The scan could not be aborted.';
 	}
 }
 ?>
-<style type="text/css">
-	.looksee-scan-description {
-		text-decoration: none;
-		font-weight: bold;
-	}
-	.looksee-scan-description:hover {
-		text-decoration: underline;
-	}
-	.form-table {
-		clear: left!important;
-	}
-	#looksee-scan-bar{
-		height: 15px;
-		width: auto;
-		padding: 0;
-		margin: 0;
-		border: 0;
-		background-color: #464645;
-		background-image: -ms-linear-gradient(bottom,#373737,#464646 5px);
-		background-image: -moz-linear-gradient(bottom,#373737,#464646 5px);
-		background-image: -o-linear-gradient(bottom,#373737,#464646 5px);
-		background-image: -webkit-gradient(linear,left bottom,left top,from(#373737),to(#464646));
-		background-image: -webkit-linear-gradient(bottom,#373737,#464646 5px);
-		background-image: linear-gradient(bottom,#373737,#464646 5px);
-		overflow: hidden;
-	}
-	#looksee-scan-label-percent {
-		width: 50px;
-		display: inline-block;
-		height: 15px;
-		line-height: 15px;
-	}
-	#looksee-scan-label {
-		display: inline-block;
-		width: auto;
-		height: 15px;
-		line-height: 15px;
-	}
-	#looksee-loading {
-		width: 16px;
-		height: 16px;
-		float: left;
-		margin-right: 10px;
-		border: 0;
-	}
-	#looksee-scan-results li {
-		line-height: 15px;
-	}
-	#looksee-scan-results li.looksee-status {
-		padding-left: 20px;
-		height: 15px;
-		background: transparent url('<?php echo plugins_url('images/status-sprite.png', __FILE__); ?>') no-repeat scroll 0 0;
-		font-weight: bold;
-	}
-	#looksee-scan-results li.looksee-status-bad {
-		background-position: 0 -20px;
-		cursor: pointer;
-	}
-	#looksee-scan-results li.looksee-status-details {
-		display: none;
-		padding-left: 40px;
-	}
-	#looksee-scan-results li.looksee-status-details-description {
-		padding-left: 20px;
-		color: #666;
-		font-style: italic;
-	}
-	.settings-help {
-		font-weight: bold;
-		text-decoration: none;
-	}
-		.settings-help:hover {
-			text-decoration: underline;
-		}
-</style>
 <div class="wrap">
 
 	<h2>Look-See Security Scanner</h2>
+
+	<h3 class="nav-tab-wrapper">
+		&nbsp;
+		<a href="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>" class="nav-tab nav-tab-active" title="Scan files">File system</a>
+		<a href="<?php echo admin_url('tools.php?page=looksee-security-analysis'); ?>" class="nav-tab" title="Analyze configurations">Configuration analysis</a>
+	</h3>
 <?php
 //error output
 if(count($errors))
@@ -236,7 +172,7 @@ if(!looksee_is_scanning()) {
 			<!--start scan settings -->
 			<div class="postbox">
 				<form id="form-looksee-core-settings" method="post" action="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>">
-				<?php wp_nonce_field('looksee-core-scanner'); ?>
+				<?php wp_nonce_field('looksee_scan_settings','nonce_settings'); ?>
 				<input type="hidden" name="action" value="looksee_scan_settings" />
 				<h3 class="hndle">Settings</h3>
 				<div class="inside">
@@ -258,7 +194,7 @@ if(!looksee_is_scanning()) {
 			<!--start scan now-->
 			<div class="postbox">
 				<form id="form-looksee-core-scan" method="post" action="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>">
-				<?php wp_nonce_field('looksee-core-scanner'); ?>
+				<?php wp_nonce_field('looksee_scan_start','nonce_start'); ?>
 				<input type="hidden" name="action" value="looksee_scan_start" />
 				<h3 class="hndle">Run Scan Now</h3>
 				<div class="inside">
@@ -275,7 +211,7 @@ if(!looksee_is_scanning()) {
 			<!--start reset core definitions-->
 			<div class="postbox">
 				<form id="form-looksee-core-definitions" method="post" action="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>">
-				<?php wp_nonce_field('looksee-core-scanner'); ?>
+				<?php wp_nonce_field('looksee_scan_definitions_reset','nonce_definitions_reset'); ?>
 				<input type="hidden" name="action" value="looksee_scan_definitions_reset" />
 				<h3 class="hndle">Reset Core Definitions</h3>
 				<div class="inside">
@@ -306,7 +242,7 @@ else {
 						<li><div id="looksee-scan-bar" style="width: <?php echo $percent; ?>%;">&nbsp;</div></li>
 						<li>
 							<form id="form-looksee-core-scan" method="post" action="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>">
-								<?php wp_nonce_field('looksee-core-scanner'); ?>
+								<?php wp_nonce_field('looksee_scan_abort','nonce_abort'); ?>
 								<input type="hidden" name="action" value="looksee_scan_abort" />
 								<input type="submit" value="Abort" />
 							</form>
@@ -342,8 +278,6 @@ else {
 	}
 
 	jQuery(document).ready(function(){ looksee_scan(); });
-
-	function htmlspecialchars(string){ return jQuery('<span>').text(string).html(); }
 
 </script>
 <?php
@@ -397,6 +331,7 @@ elseif($scan_report['ended'] > 0)
 	$extra = array();
 	$missing = array();
 	$suspicious = array();
+	$old = array();
 	$skipped = array();
 	$previous_custom = intval($wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND LENGTH(`md5_expected`)")) > 0;
 	//grab checksum mismatches
@@ -409,31 +344,40 @@ elseif($scan_report['ended'] > 0)
 			{
 				//ignore extra files if there is not anything previous to compare them with
 				if($previous_custom)
-					$extra[] = $Row["file"];
+					$extra[] = $Row['file'];
 			}
 			elseif(!strlen($Row["md5_found"]))
-				$missing[] = $Row["file"];
+				$missing[] = $Row['file'];
 			else
-				$altered[] = $Row["file"];
+				$altered[] = $Row['file'];
 
 			//we'll want to draw attention to files belonging to the WP core
 			if(strlen($Row["wp"]))
-				$core[] = $Row["file"];
+				$core[] = $Row['file'];
 		}
 	}
 	//look for files that aren't part of the core, but are lurking around in core places!
 	$dbResult = $wpdb->get_results("SELECT `file` FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND LENGTH(`md5_found`) AND `skipped`=0 AND (`file` LIKE 'wp-admin/%' OR `file` LIKE 'wp-includes/%' OR `file` LIKE 'wp-content/uploads/%.php') ORDER BY `file` ASC", ARRAY_A);
 	if($wpdb->num_rows)
 	{
+		$core_old = looksee_get_old_core_definitions();
+
+		//first, let's take a
 		foreach($dbResult AS $Row)
-			$suspicious[] = $Row["file"];
+		{
+			if(in_array($Row['file'], $core_old))
+				$old[] = $Row['file'];
+			else
+				$suspicious[] = $Row['file'];
+		}
+
 	}
 	//find skipped or ignored files
 	$dbResult = $wpdb->get_results("SELECT `file` FROM `{$wpdb->prefix}looksee_files` WHERE `skipped`=1 ORDER BY `file` ASC", ARRAY_A);
 	if($wpdb->num_rows)
 	{
 		foreach($dbResult AS $Row)
-			$skipped[] = $Row["file"];
+			$skipped[] = $Row['file'];
 	}
 
 	//explanations for the individual tests
@@ -443,7 +387,8 @@ elseif($scan_report['ended'] > 0)
 		'extra'=>'The following file(s) have magically appeared since the last Look-See scan was run.  Please review the list to ensure everything is expected.',
 		'missing'=>'The following file(s) have been removed since the last Look-See scan was run.  It is rare for a hacker to delete files, but have a look just to make sure.',
 		'missing_core'=>'The follow core WordPress file(s) are missing and should be replaced with freshly downloaded copies, otherwise your site might not work correctly.',
-		'suspicious'=>'The following unexpected file(s) should be reviewed and probably deleted. Non-core files appearing in wp-admin/ or wp-includes/ are almost certainly either garbage left over from previous versions of WordPress (which can be safely deleted) or scripts injected by hackers (which definitely should be deleted).  This scan also looks for PHP files in your wp-content/uploads folder, which unless you\'ve put them there yourself, are almost certainly backdoors left by hackers who have exploited your site.  Regardless, review these entries carefully.',
+		'suspicious'=>'The following unexpected file(s) should be reviewed and probably deleted.  This list includes any non-core files found in the wp-admin/ and wp-include/ folders, as well as any PHP scripts found lurking in the labyrinthine wp-content/uploads/ folder.  Such files are almost certainly either garbage from old WordPress installations or backdoors planted by hackers and can be safely removed.',
+		'old'=>'The following files are no longer part of the WordPress core and can be safely deleted.  Go on!  A bit of spring cleaning every now and again will keep things nice and tidy!',
 		'skipped'=>'The following file(s) were skipped due to scan settings (e.g. they were too large, etc.).'
 	);
 ?>
@@ -452,7 +397,7 @@ elseif($scan_report['ended'] > 0)
 					<p><b>Scanned <?php echo $total; ?> files in <?php echo implode(", ", $duration); ?>.</b></p>
 					<ul id="looksee-scan-results">
 						<?php
-						foreach(array('altered','extra','missing','suspicious','skipped') AS $status)
+						foreach(array('altered','extra','missing','suspicious','old','skipped') AS $status)
 						{
 							echo '<li data-scan="' . $status . '" class="looksee-status ' . (count(${$status}) ? 'looksee-status-bad' : 'looksee-status-good') . '">';
 							if($status === 'skipped')
@@ -489,30 +434,9 @@ else
 ?>
 					</div>
 				</div>
-				<!--end scan history
+				<!--end scan history-->
 
 			</div><!--end .has-sidebar-content-->
 		</div><!--end .has-sidebar-->
-
+	</div>
 </div>
-
-<script type="text/javascript">
-
-	//toggle detailed display
-	jQuery("#looksee-scan-results li.looksee-status-bad").click(function(){
-		var obj = jQuery(".looksee-status-details-" + jQuery(this).attr('data-scan'));
-		if(obj.css('display') == 'none')
-			obj.css('display','block');
-		else
-			obj.css('display','none');
-	});
-
-	//elaborate on what settings do
-	jQuery(".settings-help").click(function(e){
-		e.preventDefault();
-		var title = jQuery(this).attr('data-help');
-		if(title.length)
-			alert(title);
-	});
-
-</script>

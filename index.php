@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 3.5-3
+Version: 3.5-4
 Author: Josh Stoik
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -35,6 +35,8 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 define('LOOKSEE_DB', '1.0.4');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
+//the plugin version
+define('LOOKSEE_VERSION', '3.5-4');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
@@ -161,7 +163,20 @@ add_action('plugins_loaded', 'looksee_db_update');
 // @param n/a
 // @return true
 function looksee_security_scanner_menu(){
-    add_submenu_page('tools.php', 'Look-See Security Scanner', 'Look-See Security Scanner', 'manage_options', 'looksee-security-scanner', 'looksee_security_scanner');
+    //create the file scanner page
+    $page = add_submenu_page('tools.php', 'Look-See Security Scanner', 'Look-See Security Scanner', 'manage_options', 'looksee-security-scanner', 'looksee_security_scanner');
+    //attach stylesheet to it
+    add_action('admin_print_styles-' . $page, 'looksee_enqueue_css');
+    //attach javascript to it
+    add_action('admin_print_scripts-' . $page, 'looksee_enqueue_js');
+
+    //create the configuration analysis page
+    $page = add_submenu_page(null, 'Look-See Security Scanner: Configuration Analysis', 'Look-See Security Scanner: Configuration Analysis', 'manage_options', 'looksee-security-analysis', 'looksee_security_analysis');
+    //attach stylesheet to it
+    add_action('admin_print_styles-' . $page, 'looksee_enqueue_css');
+    //attach javascript to it
+    add_action('admin_print_scripts-' . $page, 'looksee_enqueue_js');
+
     return true;
 }
 add_action('admin_menu', 'looksee_security_scanner_menu');
@@ -177,6 +192,70 @@ add_action('admin_menu', 'looksee_security_scanner_menu');
 // @return true
 function looksee_security_scanner(){
 	require_once(dirname(__FILE__) . '/scanner.php');
+	return true;
+}
+
+//--------------------------------------------------
+//The Look-See Configurations Analysis page
+//
+// this is an external file (analysis.php)
+//
+// @since 3.5-4
+//
+// @param n/a
+// @return true
+function looksee_security_analysis(){
+	require_once(dirname(__FILE__) . '/analysis.php');
+	return true;
+}
+
+//--------------------------------------------------
+//Register stylesheet for admin pages
+//
+// @since 3.5-4
+//
+// @param n/a
+// @return true
+function looksee_register_css(){
+	wp_register_style('looksee_css', plugins_url('looksee.css', __FILE__));
+	return true;
+}
+add_action('admin_init','looksee_register_css');
+
+//--------------------------------------------------
+//Enqueue stylesheet for admin pages
+//
+// @since 3.5-4
+//
+// @param n/a
+// @return true
+function looksee_enqueue_css(){
+	wp_enqueue_style('looksee_css');
+	return true;
+}
+
+//--------------------------------------------------
+//Register javascript for admin pages
+//
+// @since 3.5-4
+//
+// @param n/a
+// @return true
+function looksee_register_js(){
+	wp_register_script('looksee_js', plugins_url('looksee.js', __FILE__),  array('jquery'), LOOKSEE_VERSION);
+	return true;
+}
+add_action('admin_init','looksee_register_js');
+
+//--------------------------------------------------
+//Enqueue javascript for admin pages
+//
+// @since 3.5-4
+//
+// @param n/a
+// @return true
+function looksee_enqueue_js(){
+	wp_enqueue_script('looksee_js');
 	return true;
 }
 
@@ -455,7 +534,7 @@ function looksee_install_core_definitions($reinstall=false){
 			$file = mysql_real_escape_string(trim(substr($line, 34)));
 
 			//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish
-			if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && strlen($file))
+			if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && filter_var($file, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_core_file')))
 				$inserts[] = "('$file','" . hash('crc32',$file) . "','$wp_version','$md5')";
 		}
 	}
@@ -471,6 +550,32 @@ function looksee_install_core_definitions($reinstall=false){
 	looksee_scan_report_clear();
 
 	return true;
+}
+
+//--------------------------------------------------
+//Find "old" files
+//
+// @since 3.5-4
+//
+// @param n/a
+// @return array
+function looksee_get_old_core_definitions(){
+	$old = array();
+	$old_file = looksee_straighten_windows(dirname(__FILE__) . '/md5sums/.old');
+
+	if(!file_exists($old_file))
+		return $old;
+
+	$tmp = explode("\n", @file_get_contents($old_file));
+	foreach($tmp AS $line)
+	{
+		$line = trim($line);
+		//there is an implicit trust that the values are correct, but let's at least make sure the entry looks right-ish
+		if(filter_var($line, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_core_file')))
+			$old[] = $line;
+	}
+
+	return $old;
 }
 
 //----------------------------------------------------------------------  end core definitions
@@ -569,6 +674,18 @@ function looksee_readdir($dir, &$files) {
 function looksee_filter_validate_md5($str=''){
 	//should be valid hex and 32 chars
 	return (bool) preg_match('/^[A-Fa-f0-9]{32}$/', $str);
+}
+
+//--------------------------------------------------
+//filter_var() validation function for WP core file
+//
+// @since 3.5-4
+//
+// param $str apparent file
+// @return  true/false
+function looksee_filter_validate_core_file($str=''){
+	//should not include characters out of the following range
+	return (strlen($str) && preg_match('/^[a-zA-Z0-9\/_.-]+$/', $str));
 }
 
 //--------------------------------------------------
