@@ -36,7 +36,7 @@ define('LOOKSEE_DB', '1.0.4');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
-define('LOOKSEE_VERSION', '3.5-4');
+define('LOOKSEE_VERSION', '3.5-5');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
@@ -437,7 +437,7 @@ function looksee_scan() {
 					$file = looksee_straighten_windows(ABSPATH . $Row["file"]);
 
 					//are we ignoring based on size?
-					if($limit > 0)
+					if($limit > 0 && @file_exists($file))
 					{
 						$size = @filesize($file);
 						if($size === false || $size > $limit)

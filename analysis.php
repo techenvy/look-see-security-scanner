@@ -94,6 +94,28 @@ if(username_exists('admin'))
 }
 
 //--------------------------------------------------
+//Check for phpinfo.php file
+
+$phpinfo = array();
+if(@file_exists(getenv('DOCUMENT_ROOT') . '/phpinfo.php'))
+{
+	if(substr_count(strtolower(@file_get_contents(getenv('DOCUMENT_ROOT') . '/phpinfo.php')), 'phpinfo('))
+		$phpinfo[] = getenv('DOCUMENT_ROOT') . '/phpinfo.php';
+}
+if(@file_exists(getenv('DOCUMENT_ROOT') . '/info.php'))
+{
+	if(substr_count(strtolower(@file_get_contents(getenv('DOCUMENT_ROOT') . '/info.php')), 'phpinfo('))
+		$phpinfo[] = getenv('DOCUMENT_ROOT') . '/info.php';
+}
+echo '<li data-scan="phpinfo" class="looksee-status looksee-status-' . (count($phpinfo) ? 'bad">Found obvious phpinfo(); output.' : 'good">No obvious phpinfo(); file.') . '</li>';
+if(count($phpinfo))
+{
+	echo '<li class="looksee-status-details looksee-status-details-phpinfo looksee-status-details-description">phpinfo(); is a function that outputs everything you ever wanted to know about PHP (but were afraid to ask), including operating system, version, configuration, and extension information.  This information is useful to web developers, but it can also help hackers target attacks against your server.  It is recomended the following file(s) be removed or renamed.</li>';
+	foreach($phpinfo AS $f)
+		echo '<li class="looksee-status-details looksee-status-details-phpinfo">' . $f . '</li>';
+}
+
+//--------------------------------------------------
 //Check for Apocalypse Meow
 
 echo '<li data-scan="meow" class="looksee-status looksee-status-' . (!in_array('apocalypse-meow/index.php', $current_plugins) ? 'bad">Apocalypse Meow is not installed.' : 'good">Apocalypse Meow is installed.') . '</li>';
