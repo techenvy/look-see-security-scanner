@@ -30,6 +30,10 @@ Look-see Security Scanner is a relatively quick and painless way to locate the s
 
 == Frequently Asked Questions ==
 
+= Is this plugin compatible with WPMU? =
+
+The plugin is only meant to be used with single-site WordPress installations.  Some features may still work under multi-site environments, however it would be safer to use some other plugin that is specifically marked WPMU-compatible instead.
+
 = Does Look-See correct any problems it finds? =
 
 No, Look-See merely points out any irregularities it finds.  It is left to you to manually review any affected files to determine whether or not they pose a threat.
@@ -115,9 +119,6 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
-
-= 3.5-5 =
-This release adds a new configuration check and fixes a reporting bug.  Happy holidays!
 
 = 3.5-4 =
 This release adds new features: configuration analysis and old core file identification.
