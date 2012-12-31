@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 3.5-4
+Version: 3.5-5
 Author: Josh Stoik
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -142,7 +142,7 @@ function looksee_db_update(){
 	if(get_option('looksee_db_version', '0.0.0') !== LOOKSEE_DB)
 		looksee_SQL();
 
-    return true;
+	return true;
 }
 add_action('plugins_loaded', 'looksee_db_update');
 
@@ -163,21 +163,21 @@ add_action('plugins_loaded', 'looksee_db_update');
 // @param n/a
 // @return true
 function looksee_security_scanner_menu(){
-    //create the file scanner page
-    $page = add_submenu_page('tools.php', 'Look-See Security Scanner', 'Look-See Security Scanner', 'manage_options', 'looksee-security-scanner', 'looksee_security_scanner');
-    //attach stylesheet to it
-    add_action('admin_print_styles-' . $page, 'looksee_enqueue_css');
-    //attach javascript to it
-    add_action('admin_print_scripts-' . $page, 'looksee_enqueue_js');
+	//create the file scanner page
+	$page = add_submenu_page('tools.php', 'Look-See Security Scanner', 'Look-See Security Scanner', 'manage_options', 'looksee-security-scanner', 'looksee_security_scanner');
+	//attach stylesheet to it
+	add_action('admin_print_styles-' . $page, 'looksee_enqueue_css');
+	//attach javascript to it
+	add_action('admin_print_scripts-' . $page, 'looksee_enqueue_js');
 
-    //create the configuration analysis page
-    $page = add_submenu_page(null, 'Look-See Security Scanner: Configuration Analysis', 'Look-See Security Scanner: Configuration Analysis', 'manage_options', 'looksee-security-analysis', 'looksee_security_analysis');
-    //attach stylesheet to it
-    add_action('admin_print_styles-' . $page, 'looksee_enqueue_css');
-    //attach javascript to it
-    add_action('admin_print_scripts-' . $page, 'looksee_enqueue_js');
+	//create the configuration analysis page
+	$page = add_submenu_page(null, 'Look-See Security Scanner: Configuration Analysis', 'Look-See Security Scanner: Configuration Analysis', 'manage_options', 'looksee-security-analysis', 'looksee_security_analysis');
+	//attach stylesheet to it
+	add_action('admin_print_styles-' . $page, 'looksee_enqueue_css');
+	//attach javascript to it
+	add_action('admin_print_scripts-' . $page, 'looksee_enqueue_js');
 
-    return true;
+	return true;
 }
 add_action('admin_menu', 'looksee_security_scanner_menu');
 

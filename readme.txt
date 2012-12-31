@@ -68,7 +68,8 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 = 3.5-5 =
 * Bug fix: Missing files incorrectly shown as being skipped;
-* New Feature: Configuration Analysis checks for phpinfo.php;
+* New Feature: Configuration Analysis checks for phpinfo.php, SSL, WP plugin/theme editor;
+* Code clean up: replaced spaces with tabs;
 
 = 3.5-4 =
 * Files left over from old WP installations are better explained in results;
@@ -119,6 +120,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 3.5-5 =
+This release fixes a bug and provides several new analysis checks.
 
 = 3.5-4 =
 This release adds new features: configuration analysis and old core file identification.

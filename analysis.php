@@ -94,6 +94,29 @@ if(username_exists('admin'))
 }
 
 //--------------------------------------------------
+//define('DISALLOW_FILE_EDIT', true);
+echo '<li data-scan="fileedit" class="looksee-status looksee-status-' . (!defined('DISALLOW_FILE_EDIT') || !constant('DISALLOW_FILE_EDIT') ? 'bad">Theme/Plugin editor is enabled.' : 'good">Theme/Plugin editor is disabled.') . '</li>';
+if(!defined('DISALLOW_FILE_EDIT') || !constant('DISALLOW_FILE_EDIT'))
+	echo '<li class="looksee-status-details looksee-status-details-fileedit looksee-status-details-description">You should disable the built-in theme/plugin editing capabilities of WordPress by adding the following to your wp-config.php file:</li>';
+	echo '<li class="looksee-status-details looksee-status-details-fileedit"><code>define(\'DISALLOW_FILE_EDIT\', true);</code></li>';
+
+//--------------------------------------------------
+//define('FORCE_SSL_LOGIN', true);
+//define('FORCE_SSL_ADMIN', true);
+$ssl = array();
+if(!defined('FORCE_SSL_ADMIN') || !constant('FORCE_SSL_ADMIN'))
+	$ssl[] = '<code>define(\'FORCE_SSL_ADMIN\', true);</code>';
+if(!defined('FORCE_SSL_LOGIN') || !constant('FORCE_SSL_LOGIN'))
+	$ssl[] = '<code>define(\'FORCE_SSL_LOGIN\', true);</code>';
+echo '<li data-scan="ssl" class="looksee-status looksee-status-' . (count($ssl) ? 'bad">Not using SSL.' : 'good">SSL in use.') . '</li>';
+if(count($ssl))
+{
+	echo '<li class="looksee-status-details looksee-status-details-ssl looksee-status-details-description">If you have an SSL certificate for your site, tell WordPress to use it! Add the following to your wp-config.php:</li>';
+	foreach($ssl AS $s)
+		echo '<li class="looksee-status-details looksee-status-details-ssl">' . $s . '</li>';
+}
+
+//--------------------------------------------------
 //Check for phpinfo.php file
 
 $phpinfo = array();
