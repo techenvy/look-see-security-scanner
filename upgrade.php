@@ -41,7 +41,7 @@ if(getenv("REQUEST_METHOD") == "POST")
 	{
 		if(false !== looksee_install_core_definitions())
 		{
-			echo '<div class="updated fade"><p>The core definitions for WordPress ' . get_bloginfo('version') . ' have been successfully installed.  Click <a href="' . admin_url('tools.php?page=looksee-security-scanner') . '" title="Look-See Security Scanner">here</a> to continue to the Look-See Security Scanner.</p></div>';
+			echo '<div class="updated fade"><p>The core definitions for WordPress ' . get_bloginfo('version') . ' have been successfully installed.  Click <a href="' . esc_url(admin_url('tools.php?page=looksee-security-scanner')) . '" title="Look-See Security Scanner">here</a> to continue to the Look-See Security Scanner.</p></div>';
 			return;
 		}
 		else
@@ -64,7 +64,7 @@ if(count($errors))
 	<div class="error fade">
 		<p>The core definitions for WordPress <?php echo get_bloginfo('version'); ?> need to be installed before a scan can be run.</p>
 		<p>
-			<form id="form-looksee-core-scan" method="post" action="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>">
+			<form id="form-looksee-core-scan" method="post" action="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>">
 			<?php wp_nonce_field('looksee-core-definitions'); ?>
 			<input type="submit" value="Install Now" />
 			</form>

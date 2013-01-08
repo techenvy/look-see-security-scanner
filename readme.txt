@@ -66,6 +66,12 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 3.5-6 =
+* Uninstallation now removes all plugin data/settings;
+* Prevent installation on WPMU blogs;
+* Use $_SERVER instead of getenv() as it is compatible with more environments;
+* New Feature: Configuration Analysis checks for inactive themes and plugins;
+
 = 3.5-5 =
 * Bug fix: Missing files incorrectly shown as being skipped;
 * New Feature: Configuration Analysis checks for phpinfo.php, SSL, WP plugin/theme editor;
@@ -120,6 +126,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 3.5-6 =
+New features and bug fixes.
 
 = 3.5-5 =
 This release fixes a bug and provides several new analysis checks.

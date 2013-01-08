@@ -1,10 +1,10 @@
 <?php
 //----------------------------------------------------------------------
-//  Look-See Core Scanner
+//  Look-See Configuration Analysis
 //----------------------------------------------------------------------
-//Compare checksums of core WP files with a list of what's expected.
+//Check the overall state of things for potential flags
 //
-// @since 1.0.0
+// @since 3.5-4
 
 
 
@@ -35,8 +35,8 @@ $current_plugins = get_option('active_plugins');
 
 	<h3 class="nav-tab-wrapper">
 		&nbsp;
-		<a href="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>" class="nav-tab" title="Scan files">File system</a>
-		<a href="<?php echo admin_url('tools.php?page=looksee-security-analysis'); ?>" class="nav-tab nav-tab-active" title="Analyze configurations">Configuration analysis</a>
+		<a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>" class="nav-tab" title="Scan files">File system</a>
+		<a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-analysis')); ?>" class="nav-tab nav-tab-active" title="Analyze configurations">Configuration analysis</a>
 	</h3>
 
 	<div class="metabox-holder has-right-sidebar">
@@ -90,7 +90,7 @@ echo '<li data-scan="admin" class="looksee-status looksee-status-' . (username_e
 if(username_exists('admin'))
 {
 	echo '<li class="looksee-status-details looksee-status-details-admin looksee-status-details-description">Almost every illicit attempt to gain access to your blog will do so with the default username &quot;admin&quot;.</li>';
-	echo '<li class="looksee-status-details looksee-status-details-admin looksee-status-details-description">' . (in_array('apocalypse-meow/index.php', $current_plugins) ? 'Visit the <a href="' . admin_url('options-general.php?page=meow-settings') . '" title="Apocalypse Meow">Apocalypse Meow settings page</a> to rename this user.' : 'Apocalypse Meow can fix this for you (see below).') . '</li>';
+	echo '<li class="looksee-status-details looksee-status-details-admin looksee-status-details-description">' . (in_array('apocalypse-meow/index.php', $current_plugins) ? 'Visit the <a href="' . esc_url(admin_url('options-general.php?page=meow-settings')) . '" title="Apocalypse Meow">Apocalypse Meow settings page</a> to rename this user.' : 'Apocalypse Meow can fix this for you (see below).') . '</li>';
 }
 
 //--------------------------------------------------
@@ -108,41 +108,76 @@ if(!defined('FORCE_SSL_ADMIN') || !constant('FORCE_SSL_ADMIN'))
 	$ssl[] = '<code>define(\'FORCE_SSL_ADMIN\', true);</code>';
 if(!defined('FORCE_SSL_LOGIN') || !constant('FORCE_SSL_LOGIN'))
 	$ssl[] = '<code>define(\'FORCE_SSL_LOGIN\', true);</code>';
-echo '<li data-scan="ssl" class="looksee-status looksee-status-' . (count($ssl) ? 'bad">Not using SSL.' : 'good">SSL in use.') . '</li>';
+echo '<li data-scan="ssl" class="looksee-status looksee-status-' . (count($ssl) ? 'bad">User sessions are unencrypted.' : 'good">User sessions are encrypted.') . '</li>';
 if(count($ssl))
 {
-	echo '<li class="looksee-status-details looksee-status-details-ssl looksee-status-details-description">If you have an SSL certificate for your site, tell WordPress to use it! Add the following to your wp-config.php:</li>';
+	echo '<li class="looksee-status-details looksee-status-details-ssl looksee-status-details-description">If you have an SSL/TLS certificate for your site, tell WordPress to use it to enhance the security of your user sessions! Add the following to your wp-config.php:</li>';
 	foreach($ssl AS $s)
 		echo '<li class="looksee-status-details looksee-status-details-ssl">' . $s . '</li>';
+}
+
+//--------------------------------------------------
+//Check for extra themes
+$themes = array();
+$current_theme = get_stylesheet_directory();
+$tmp = wp_get_themes();
+foreach($tmp AS $t)
+{
+	if($t->get_stylesheet_directory() !== $current_theme)
+		$themes[] = $t->get_stylesheet_directory();
+}
+echo '<li data-scan="themes" class="looksee-status looksee-status-' . (count($themes) ? 'bad">Inactive themes found.' : 'good">No inactive themes.') . '</li>';
+if(count($themes))
+{
+	echo '<li class="looksee-status-details looksee-status-details-themes looksee-status-details-description">Inactive themes add a bit of overhead and mess to your server and might include unsafe code which could leave your system vulnerable to attack.  A good rule of thumb: if you aren\'t using it, delete it!</li>';
+	foreach($themes AS $theme)
+		echo '<li class="looksee-status-details looksee-status-details-themes">' . esc_html($theme) . '</li>';
+}
+
+//--------------------------------------------------
+//Check for inactive plugins
+$plugins = array();
+$tmp = get_plugins();
+foreach($tmp AS $k=>$v)
+{
+	if(!in_array($k, $current_plugins))
+		$plugins[] = $v["Name"];
+}
+echo '<li data-scan="plugins" class="looksee-status looksee-status-' . (count($plugins) ? 'bad">Inactive plugins found.' : 'good">No inactive plugins.') . '</li>';
+if(count($plugins))
+{
+	echo '<li class="looksee-status-details looksee-status-details-plugins looksee-status-details-description">Inactive plugins add a bit of overhead and mess to your server and might include unsafe code which could leave your system vulnerable to attack.  A good rule of thumb: if you aren\'t using it, delete it!</li>';
+	foreach($plugins AS $plugin)
+		echo '<li class="looksee-status-details looksee-status-details-plugins">' . esc_html($plugin) . '</li>';
 }
 
 //--------------------------------------------------
 //Check for phpinfo.php file
 
 $phpinfo = array();
-if(@file_exists(getenv('DOCUMENT_ROOT') . '/phpinfo.php'))
+if(@file_exists($_SERVER['DOCUMENT_ROOT'] . '/phpinfo.php'))
 {
-	if(substr_count(strtolower(@file_get_contents(getenv('DOCUMENT_ROOT') . '/phpinfo.php')), 'phpinfo('))
-		$phpinfo[] = getenv('DOCUMENT_ROOT') . '/phpinfo.php';
+	if(substr_count(strtolower(@file_get_contents(looksee_straighten_windows($_SERVER['DOCUMENT_ROOT'] . '/phpinfo.php'))), 'phpinfo('))
+		$phpinfo[] = looksee_straighten_windows($_SERVER['DOCUMENT_ROOT'] . '/phpinfo.php');
 }
-if(@file_exists(getenv('DOCUMENT_ROOT') . '/info.php'))
+if(@file_exists(looksee_straighten_windows($_SERVER['DOCUMENT_ROOT'] . '/info.php')))
 {
-	if(substr_count(strtolower(@file_get_contents(getenv('DOCUMENT_ROOT') . '/info.php')), 'phpinfo('))
-		$phpinfo[] = getenv('DOCUMENT_ROOT') . '/info.php';
+	if(substr_count(strtolower(@file_get_contents(looksee_straighten_windows($_SERVER['DOCUMENT_ROOT'] . '/info.php'))), 'phpinfo('))
+		$phpinfo[] = looksee_straighten_windows($_SERVER['DOCUMENT_ROOT'] . '/info.php');
 }
 echo '<li data-scan="phpinfo" class="looksee-status looksee-status-' . (count($phpinfo) ? 'bad">Found obvious phpinfo(); output.' : 'good">No obvious phpinfo(); file.') . '</li>';
 if(count($phpinfo))
 {
-	echo '<li class="looksee-status-details looksee-status-details-phpinfo looksee-status-details-description">phpinfo(); is a function that outputs everything you ever wanted to know about PHP (but were afraid to ask), including operating system, version, configuration, and extension information.  This information is useful to web developers, but it can also help hackers target attacks against your server.  It is recomended the following file(s) be removed or renamed.</li>';
+	echo '<li class="looksee-status-details looksee-status-details-phpinfo looksee-status-details-description">phpinfo(); is a function that outputs everything you ever wanted to know about PHP (but were afraid to ask), including operating system, version, configuration, and extension information.  This information is useful to web developers, but it can also help hackers target attacks against your server.  It is recomended the following file(s) be removed or renamed to something less obvious.</li>';
 	foreach($phpinfo AS $f)
-		echo '<li class="looksee-status-details looksee-status-details-phpinfo">' . $f . '</li>';
+		echo '<li class="looksee-status-details looksee-status-details-phpinfo">' . esc_html($f) . '</li>';
 }
 
 //--------------------------------------------------
 //Check for Apocalypse Meow
 
-echo '<li data-scan="meow" class="looksee-status looksee-status-' . (!in_array('apocalypse-meow/index.php', $current_plugins) ? 'bad">Apocalypse Meow is not installed.' : 'good">Apocalypse Meow is installed.') . '</li>';
-if(!in_array('apocalypse-meow/index.php', $current_plugins))
+echo '<li data-scan="meow" class="looksee-status looksee-status-' . (!in_array('apocalypse-meow/index.php', $current_plugins) && !in_array('apocalypse-meow\\index.php', $current_plugins) ? 'bad">Apocalypse Meow is not installed.' : 'good">Apocalypse Meow is installed.') . '</li>';
+if(!in_array('apocalypse-meow/index.php', $current_plugins) && !in_array('apocalypse-meow\\index.php', $current_plugins))
 	echo '<li class="looksee-status-details looksee-status-details-meow looksee-status-details-description">Apocalypse Meow is Look-See\'s (pro-active) companion plugin.  It includes several tools to help lockdown your site and is highly recommended (and not just because we wrote it!).  Visit <a href="http://wordpress.org/extend/plugins/apocalypse-meow/" title="Apocalypse Meow" target="_blank">wordpress.org/extend/plugins/apocalypse-meow/</a> for more information.</li>';
 
 //--------------------------------------------------
@@ -151,7 +186,7 @@ if(!in_array('apocalypse-meow/index.php', $current_plugins))
 $tmp = wp_get_update_data();
 echo '<li data-scan="updates" class="looksee-status looksee-status-' . ($tmp['counts']['total'] > 0 ? 'bad">WordPress updates are available.' : 'good">WordPress is up-to-date.') . '</li>';
 if($tmp['counts']['total'] > 0)
-	echo '<li class="looksee-status-details looksee-status-details-updates looksee-status-details-description">Keeping your software up-to-date is critical!  Go to <a href="' . admin_url('update-core.php') . '" title="Updates">' . admin_url('update_core.php') . '</a> to get up to speed.</li>';
+	echo '<li class="looksee-status-details looksee-status-details-updates looksee-status-details-description">Keeping your software up-to-date is critical!  Go to <a href="' . esc_url(admin_url('update-core.php')) . '" title="Updates">' . esc_html(admin_url('update_core.php')) . '</a> to get up to speed.</li>';
 
 
 ?>

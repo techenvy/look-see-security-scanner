@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 3.5-5
+Version: 3.5-6
 Author: Josh Stoik
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -36,7 +36,7 @@ define('LOOKSEE_DB', '1.0.4');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
-define('LOOKSEE_VERSION', '3.5-5');
+define('LOOKSEE_VERSION', '3.5-6');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
@@ -145,6 +145,25 @@ function looksee_db_update(){
 	return true;
 }
 add_action('plugins_loaded', 'looksee_db_update');
+
+//--------------------------------------------------
+//Force deactivation if multi-site is enabled
+//
+// @since 3.5-6
+//
+// @param n/a
+// @return true
+function looksee_deactivate_multisite(){
+	if(is_multisite())
+	{
+		require_once(ABSPATH . '/wp-admin/includes/plugin.php');
+		deactivate_plugins(__FILE__);
+		echo '<div class="error fade"><p>Look-See Security Scanner is not compatible with WPMU and has been disabled. Sorry!</p></div>';
+	}
+
+	return true;
+}
+add_action('admin_init', 'looksee_deactivate_multisite');
 
 //---------------------------------------------------------------------- end db
 

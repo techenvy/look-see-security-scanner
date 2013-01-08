@@ -35,7 +35,7 @@ global $wpdb;
 
 //is there a version file?
 if(!looksee_support_version())
-	$errors[] = 'There is no file database for your version of WP (' . get_bloginfo('version') . ').  Double-check for available <a href="' . admin_url('update-core.php') . '" title="WordPress updates">software updates</a>, as applying them may well fix this problem.';
+	$errors[] = 'There is no file database for your version of WP (' . get_bloginfo('version') . ').  Double-check for available <a href="' . esc_url(admin_url('update-core.php')) . '" title="WordPress updates">software updates</a>, as applying them may well fix this problem.';
 
 //can PHP generate MD5s?
 if(!looksee_support_md5())
@@ -123,7 +123,7 @@ if(getenv("REQUEST_METHOD") === "POST")
 		elseif(looksee_is_scanning())
 			$errors[] = 'The core definitions cannot be reset while a scan is underway!';
 		elseif(false !== looksee_install_core_definitions(true))
-			echo '<div class="updated fade"><p>The core definitions for WordPress ' . $wp_version . ' have been successfully re-installed.</p></div>';
+			echo '<div class="updated fade"><p>The core definitions for WordPress ' . get_bloginfo('version') . ' have been successfully re-installed.</p></div>';
 		else
 			$errors[] = 'The core definitions were not reinstalled successfully.';
 	}
@@ -150,15 +150,15 @@ if(getenv("REQUEST_METHOD") === "POST")
 
 	<h3 class="nav-tab-wrapper">
 		&nbsp;
-		<a href="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>" class="nav-tab nav-tab-active" title="Scan files">File system</a>
-		<a href="<?php echo admin_url('tools.php?page=looksee-security-analysis'); ?>" class="nav-tab" title="Analyze configurations">Configuration analysis</a>
+		<a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>" class="nav-tab nav-tab-active" title="Scan files">File system</a>
+		<a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-analysis')); ?>" class="nav-tab" title="Analyze configurations">Configuration analysis</a>
 	</h3>
 <?php
 //error output
 if(count($errors))
 {
 	foreach($errors AS $e)
-		echo '<div class="error fade"><p>' . $e . '</p></div>';
+		echo '<div class="error fade"><p>' . esc_html($e) . '</p></div>';
 }
 ?>
 	<div class="metabox-holder has-right-sidebar">
@@ -171,7 +171,7 @@ if(!looksee_is_scanning()) {
 ?>
 			<!--start scan settings -->
 			<div class="postbox">
-				<form id="form-looksee-core-settings" method="post" action="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>">
+				<form id="form-looksee-core-settings" method="post" action="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>">
 				<?php wp_nonce_field('looksee_scan_settings','nonce_settings'); ?>
 				<input type="hidden" name="action" value="looksee_scan_settings" />
 				<h3 class="hndle">Settings</h3>
@@ -193,7 +193,7 @@ if(!looksee_is_scanning()) {
 
 			<!--start scan now-->
 			<div class="postbox">
-				<form id="form-looksee-core-scan" method="post" action="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>">
+				<form id="form-looksee-core-scan" method="post" action="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>">
 				<?php wp_nonce_field('looksee_scan_start','nonce_start'); ?>
 				<input type="hidden" name="action" value="looksee_scan_start" />
 				<h3 class="hndle">Run Scan Now</h3>
@@ -210,7 +210,7 @@ if(!looksee_is_scanning()) {
 
 			<!--start reset core definitions-->
 			<div class="postbox">
-				<form id="form-looksee-core-definitions" method="post" action="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>">
+				<form id="form-looksee-core-definitions" method="post" action="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>">
 				<?php wp_nonce_field('looksee_scan_definitions_reset','nonce_definitions_reset'); ?>
 				<input type="hidden" name="action" value="looksee_scan_definitions_reset" />
 				<h3 class="hndle">Reset Core Definitions</h3>
@@ -241,7 +241,7 @@ else {
 						<li><span id="looksee-scan-label-percent"><?php echo $percent; ?>%</span><span id="looksee-scan-label">Scanned <?php echo "$completed of $total"; ?></span></li>
 						<li><div id="looksee-scan-bar" style="width: <?php echo $percent; ?>%;">&nbsp;</div></li>
 						<li>
-							<form id="form-looksee-core-scan" method="post" action="<?php echo admin_url('tools.php?page=looksee-security-scanner'); ?>">
+							<form id="form-looksee-core-scan" method="post" action="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>">
 								<?php wp_nonce_field('looksee_scan_abort','nonce_abort'); ?>
 								<input type="hidden" name="action" value="looksee_scan_abort" />
 								<input type="submit" value="Abort" />
@@ -271,7 +271,7 @@ else {
 			//otherwise let's update the progress
 			jQuery("#looksee-scan-label-percent").text(response.percent + '%');
 			jQuery("#looksee-scan-label").text('Scanned ' + response.completed + ' of ' + response.total);
-			jQuery("#looksee-scan-bar").css('width',response.percent + '%');
+			jQuery("#looksee-scan-bar").css('width', response.percent + '%');
 
 			looksee_scan();
 		});
@@ -297,7 +297,7 @@ else {
 $scan_report = looksee_get_option('looksee_scan_report');
 
 if(looksee_is_scanning())
-	echo '<h3 class="hndle">Scan Results</h3><div class="inside"><p><img src="' . plugins_url('images/loading1.gif', __FILE__) . '" id="looksee-loading" /> A report will be generated once the scan is completed.</p>';
+	echo '<h3 class="hndle">Scan Results</h3><div class="inside"><p><img src="' . esc_url(plugins_url('images/loading1.gif', __FILE__)) . '" id="looksee-loading" /> A report will be generated once the scan is completed.</p>';
 elseif($scan_report['ended'] AND count($scan_report['errors']))
 	echo '<h3 class="hndle">Scan Results</h3><div class="inside"><p>' . implode('</p><p>', $scan_report['errors']) . '</p>';
 elseif($scan_report['ended'] > 0)
@@ -412,7 +412,7 @@ elseif($scan_report['ended'] > 0)
 								{
 									echo '<li class="looksee-status-details looksee-status-details-' . $status . ' looksee-status-details-description">' . $info[$status . "_core"] . '</li>';
 									foreach($tmp AS $f)
-										echo '<li class="looksee-status-details looksee-status-details-' . $status . '">' . htmlspecialchars(looksee_straighten_windows(ABSPATH . $f)) . '</li>';
+										echo '<li class="looksee-status-details looksee-status-details-' . $status . '">' . esc_html(looksee_straighten_windows(ABSPATH . $f)) . '</li>';
 								}
 								if(count($tmp) < count(${$status}))
 								{
@@ -420,7 +420,7 @@ elseif($scan_report['ended'] > 0)
 									foreach(${$status} AS $f)
 									{
 										if(!in_array($f, $core))
-											echo '<li class="looksee-status-details looksee-status-details-' . $status . '">' . htmlspecialchars(looksee_straighten_windows(ABSPATH . $f)) . '</li>';
+											echo '<li class="looksee-status-details looksee-status-details-' . $status . '">' . esc_html(looksee_straighten_windows(ABSPATH . $f)) . '</li>';
 									}
 								}
 							}
