@@ -1,7 +1,7 @@
 === Plugin Name ===
 Contributors: blobfolio
-Donate link: http://www.blobfolio.com
-Tags: security, scanner, vulnerabilities, files, validation, auditor, validator, checker
+Donate link: http://www.blobfolio.com/donate.html
+Tags: security, scanner, vulnerabilities, files, validation, auditor, validator, looksee, checker
 Requires at least: 3.4.2
 Tested up to: 3.5
 Stable tag: trunk
