@@ -66,6 +66,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 3.5.1 =
+* Added compatibility with WordPress 3.5.1;
+
 = 3.5-6 =
 * Uninstallation now removes all plugin data/settings;
 * Prevent installation on WPMU blogs;
@@ -126,6 +129,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 3.5.1 =
+Added compatibility with WordPress 3.5.1.
 
 = 3.5-6 =
 New features and bug fixes.
