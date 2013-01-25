@@ -66,8 +66,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
-= 3.5.1 =
+= 12.01 =
 * Added compatibility with WordPress 3.5.1;
+* Changed version naming scheme to YY.MM;
 
 = 3.5-6 =
 * Uninstallation now removes all plugin data/settings;
