@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 13.01
+Version: 13.04
 Author: Josh Stoik
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -32,11 +32,11 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 //  Constants, globals, and variable handling
 //----------------------------------------------------------------------
 //the database version
-define('LOOKSEE_DB', '1.0.4');
+define('LOOKSEE_DB', '1.0.5');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
-define('LOOKSEE_VERSION', '13.01');
+define('LOOKSEE_VERSION', '13.04');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
@@ -85,10 +85,14 @@ function looksee_get_option($option){
 function looksee_SQL(){
 	global $wpdb;
 
+	//dbdelta won't correctly upgrade to the table layout for 1.0.5
+	//so if an old table exists, let's kill it!
+	if(get_option('looksee_db_version','0.0.0') < '1.0.5' && get_option('looksee_db_version','0.0.0') !== '0.0.0')
+		$wpdb->query("DROP TABLE IF EXISTS `{$wpdb->prefix}looksee_files`");
+
 	//the files to scan go here
 	// `id` numeric primary key
 	// `file` the relative file path
-	// `file_hash` a CRC32 hash of `file` to help create a case-sensitive unique key regardless of table charset
 	// `wp` the wordpress version if a core file, otherwise ''
 	// `md5_expected` the expected checksum
 	// `md5_found` the discovered checksum
@@ -97,8 +101,7 @@ function looksee_SQL(){
 	// `skipped` was this file check skipped?
 	$sql = "CREATE TABLE {$wpdb->prefix}looksee_files (
   id bigint(15) NOT NULL AUTO_INCREMENT,
-  file varchar(300) NOT NULL,
-  file_hash char(8) NOT NULL,
+  file varbinary(300) NOT NULL,
   wp varchar(10) DEFAULT '' NOT NULL,
   md5_expected char(32) DEFAULT '' NOT NULL,
   md5_found char(32) DEFAULT '' NOT NULL,
@@ -106,7 +109,7 @@ function looksee_SQL(){
   queued tinyint(1) DEFAULT 0 NOT NULL,
   skipped tinyint(1) DEFAULT 0 NOT NULL,
   PRIMARY KEY  (id),
-  UNIQUE KEY file2 (file,file_hash),
+  UNIQUE KEY file (file),
   KEY wp (wp),
   KEY queued (queued),
   KEY skipped (skipped)
@@ -114,15 +117,6 @@ function looksee_SQL(){
 
 	require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 	dbDelta($sql);
-
-	//we have some tidying up to do when upgrading to 1.0.3
-	if(get_option('looksee_db_version','0.0.0') < '1.0.3' && get_option('looksee_db_version','0.0.0') !== '0.0.0')
-	{
-		//dbDelta doesn't remove old indexes, apparently
-		$wpdb->query("ALTER TABLE `{$wpdb->prefix}looksee_files` DROP INDEX `file`");
-		//quickly generate some file_hashes
-		$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `file_hash`=CRC32(`file`)");
-	}
 
 	update_option("looksee_db_version", LOOKSEE_DB);
 
@@ -399,16 +393,16 @@ function looksee_scan_start($background=false){
 			//add to the database in blocks
 			if(count($inserts) == LOOKSEE_SCAN_INTERVAL)
 			{
-				$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`) VALUES " . implode(',', $inserts));
+				$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES " . implode(',', $inserts));
 				$inserts = array();
 
 				//a good place to extend PHP's time limit
 				@set_time_limit(0);
 			}
-			$inserts[] = "('" . mysql_real_escape_string($f) . "','" . hash('crc32',$f) . "')";
+			$inserts[] = "('" . mysql_real_escape_string($f) . "')";
 		}
 		//add whatever's left to add
-		$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`) VALUES " . implode(',', $inserts));
+		$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES " . implode(',', $inserts));
 		unset($inserts);
 	}
 	unset($files_new);
@@ -543,7 +537,7 @@ function looksee_install_core_definitions($reinstall=false){
 		//update in chunks!
 		if(count($inserts) === LOOKSEE_SCAN_INTERVAL)
 		{
-			$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`,`wp`,`md5_expected`) VALUES " . implode(',', $inserts) . " ON DUPLICATE KEY UPDATE `wp`='$wp_version', `md5_expected`=VALUES(`md5_expected`), `md5_saved`='',`md5_found`='',`skipped`=0");
+			$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`wp`,`md5_expected`) VALUES " . implode(',', $inserts) . " ON DUPLICATE KEY UPDATE `wp`='$wp_version', `md5_expected`=VALUES(`md5_expected`), `md5_saved`='',`md5_found`='',`skipped`=0");
 			$inserts = array();
 		}
 		$line = trim($line);
@@ -554,14 +548,14 @@ function looksee_install_core_definitions($reinstall=false){
 
 			//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish
 			if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && filter_var($file, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_core_file')))
-				$inserts[] = "('$file','" . hash('crc32',$file) . "','$wp_version','$md5')";
+				$inserts[] = "('$file','$wp_version','$md5')";
 		}
 	}
 	//save whatever's left over
 	if(count($inserts))
-		$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`file_hash`,`wp`,`md5_expected`) VALUES " . implode(',', $inserts) . " ON DUPLICATE KEY UPDATE `wp`='$wp_version', `md5_expected`=VALUES(`md5_expected`), `md5_saved`='',`md5_found`='',`skipped`=0");
+		$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`wp`,`md5_expected`) VALUES " . implode(',', $inserts) . " ON DUPLICATE KEY UPDATE `wp`='$wp_version', `md5_expected`=VALUES(`md5_expected`), `md5_saved`='',`md5_found`='',`skipped`=0");
 
-	//clear old checksums from database, if necessary
+	//clear old files from database, if necessary
 	if($reinstall === false)
 		$wpdb->query("DELETE FROM `{$wpdb->prefix}looksee_files` WHERE LENGTH(`wp`) AND NOT(`wp`='$wp_version')");
 

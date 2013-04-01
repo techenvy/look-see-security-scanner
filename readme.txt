@@ -66,7 +66,11 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
-= 12.01 =
+= 13.04 =
+* Added support for InnoDB database engine;
+* Minor speed improvements;
+
+= 13.01 =
 * Added compatibility with WordPress 3.5.1;
 * Changed version naming scheme to YY.MM;
 
@@ -131,7 +135,10 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Upgrade Notice ==
 
-= 3.5.1 =
+= 13.04 =
+Added compatibility for InnoDB.  NOTE: upgrading will erase currently stored scan info so you are encouraged to scan once before upgrading (to make sure nothing's out of the ordinary), and again afterward (to generate something to compare against next time).
+
+= 13.01 =
 Added compatibility with WordPress 3.5.1.
 
 = 3.5-6 =
