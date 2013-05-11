@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 13.04
+Version: 13.05
 Author: Josh Stoik
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -36,7 +36,7 @@ define('LOOKSEE_DB', '1.0.5');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
-define('LOOKSEE_VERSION', '13.04');
+define('LOOKSEE_VERSION', '13.05');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
@@ -399,7 +399,7 @@ function looksee_scan_start($background=false){
 				//a good place to extend PHP's time limit
 				@set_time_limit(0);
 			}
-			$inserts[] = "('" . mysql_real_escape_string($f) . "')";
+			$inserts[] = "('" . $wpdb->escape($f) . "')";
 		}
 		//add whatever's left to add
 		$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES " . implode(',', $inserts));
@@ -518,12 +518,12 @@ function looksee_install_core_definitions($reinstall=false){
 	if(looksee_is_scanning())
 		looksee_scan_abort();
 
+	global $wpdb;
+
 	//the version of wordpress installed
-	$wp_version = mysql_real_escape_string(get_bloginfo('version'));
+	$wp_version = $wpdb->escape(get_bloginfo('version'));
 	//the file containing the core definitions for this version
 	$md5_core_file = looksee_straighten_windows(dirname(__FILE__) . '/md5sums/' . get_bloginfo('version') . '.md5');
-
-	global $wpdb;
 
 	//if we are forcing a refresh, let's delete all WP definitions to clear out any garbage that might be there
 	if($reinstall === true)
@@ -544,7 +544,7 @@ function looksee_install_core_definitions($reinstall=false){
 		if(strlen($line) > 34)
 		{
 			$md5 = substr($line, 0, 32);
-			$file = mysql_real_escape_string(trim(substr($line, 34)));
+			$file = $wpdb->escape(trim(substr($line, 34)));
 
 			//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish
 			if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && filter_var($file, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_core_file')))

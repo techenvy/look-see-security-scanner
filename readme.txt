@@ -66,6 +66,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 13.05 =
+* Minor update, replacing a couple functions that are deprecated as of PHP 5.5.0.
+
 = 13.04 =
 * Added support for InnoDB database engine;
 * Minor speed improvements;
@@ -134,6 +137,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 13.05 =
+Minor update, replacing a couple functions that are deprecated as of PHP 5.5.0.
 
 = 13.04 =
 Added compatibility for InnoDB.  NOTE: upgrading will erase currently stored scan info so you are encouraged to scan once before upgrading (to make sure nothing's out of the ordinary), and again afterward (to generate something to compare against next time).
