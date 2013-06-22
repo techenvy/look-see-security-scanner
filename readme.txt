@@ -142,6 +142,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Upgrade Notice ==
 
+= 13.07 =
+Added support for WordPress 3.5.2 and dropped support for 3.4.2.
+
 = 13.05 =
 Minor update, replacing a couple functions that are deprecated as of PHP 5.5.0.
 
