@@ -2,8 +2,8 @@
 Contributors: blobfolio
 Donate link: http://www.blobfolio.com/donate.html
 Tags: security, scanner, vulnerabilities, files, validation, auditor, validator, looksee, checker
-Requires at least: 3.4.2
-Tested up to: 3.5.1
+Requires at least: 3.5
+Tested up to: 3.5.2
 Stable tag: trunk
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -65,6 +65,10 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 3. Check configuration for oversights or vulnerabilities.
 
 == Changelog ==
+
+= 13.07 =
+* Added compatibility with WordPress 3.5.2;
+* Removed compatibility with WordPress 3.4.2;
 
 = 13.05 =
 * Minor update, replacing a couple functions that are deprecated as of PHP 5.5.0.
