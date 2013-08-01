@@ -9,7 +9,7 @@ Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
-	Copyright © 2012  Josh Stoik  (email: josh@blobfolio.com)
+	Copyright © 2013  Josh Stoik  (email: josh@blobfolio.com)
 
 	This program is free software; you can redistribute it and/or
 	modify it under the terms of the GNU General Public License
@@ -36,7 +36,7 @@ define('LOOKSEE_DB', '1.0.5');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
-define('LOOKSEE_VERSION', '13.07');
+define('LOOKSEE_VERSION', '13.08');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
