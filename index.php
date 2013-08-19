@@ -36,7 +36,7 @@ define('LOOKSEE_DB', '1.0.5');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
-define('LOOKSEE_VERSION', '13.08');
+define('LOOKSEE_VERSION', '13.08.02');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
