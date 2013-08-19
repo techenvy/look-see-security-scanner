@@ -66,6 +66,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 13.08.2 =
+* Replace deprecated $wpdb->escape() with esc_sql().
+
 = 13.08 =
 * Added compatibility with WordPress 3.6;
 

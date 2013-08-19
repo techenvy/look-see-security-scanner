@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 13.08
+Version: 13.08.2
 Author: Josh Stoik
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -399,7 +399,7 @@ function looksee_scan_start($background=false){
 				//a good place to extend PHP's time limit
 				@set_time_limit(0);
 			}
-			$inserts[] = "('" . $wpdb->escape($f) . "')";
+			$inserts[] = "('" . esc_sql($f) . "')";
 		}
 		//add whatever's left to add
 		$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES " . implode(',', $inserts));
@@ -521,7 +521,7 @@ function looksee_install_core_definitions($reinstall=false){
 	global $wpdb;
 
 	//the version of wordpress installed
-	$wp_version = $wpdb->escape(get_bloginfo('version'));
+	$wp_version = esc_sql(get_bloginfo('version'));
 	//the file containing the core definitions for this version
 	$md5_core_file = looksee_straighten_windows(dirname(__FILE__) . '/md5sums/' . get_bloginfo('version') . '.md5');
 
@@ -544,7 +544,7 @@ function looksee_install_core_definitions($reinstall=false){
 		if(strlen($line) > 34)
 		{
 			$md5 = substr($line, 0, 32);
-			$file = $wpdb->escape(trim(substr($line, 34)));
+			$file = esc_sql(trim(substr($line, 34)));
 
 			//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish
 			if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && filter_var($file, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_core_file')))
