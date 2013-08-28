@@ -261,12 +261,22 @@ else {
 				response = jQuery.parseJSON(data);
 			}
 			catch(e){
-				window.location.reload();
+				jQuery("#looksee-scan-label").text('The server choked and returned bad data!');
+				jQuery('input[type=submit]', jQuery('#form-looksee-core-scan')).remove();
+				jQuery('#form-looksee-core-scan').append('<p>Click <a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>" title="Reset">here</a> to reset and try again.</p>');
+				return;
 			}
 
 			//if the response was crap OR if we are done, reload the page
-			if(response.total==undefined || response.completed==undefined || response.percent==undefined || response.total==response.completed)
-				window.location.reload();
+			if(response.total==response.completed)
+			{
+				jQuery("#looksee-scan-label-percent").text(response.percent + '%');
+				jQuery("#looksee-scan-label").text('Finished scanning ' + response.completed + ' files!');
+				jQuery("#looksee-scan-bar").css('width', response.percent + '%');
+				jQuery('input[type=submit]', jQuery('#form-looksee-core-scan')).remove();
+				jQuery('#form-looksee-core-scan').append('<p>Click <a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>" title="Results">here</a> to see the results.</p>');
+				return;
+			}
 
 			//otherwise let's update the progress
 			jQuery("#looksee-scan-label-percent").text(response.percent + '%');

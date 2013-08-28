@@ -66,6 +66,10 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 13.08.3 =
+* Fixed undefined variable PHP Notice;
+* Fixed hang in Firefox upon scan completion;
+
 = 13.08.2 =
 * Replace deprecated $wpdb->escape() with esc_sql().
 
@@ -147,6 +151,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 13.08.3 =
+This release contains bug fixes. Firefox users are particularly encouraged to upgrade.
 
 = 13.08 =
 Added support for WordPress 3.6.
