@@ -66,6 +66,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 13.09.2 =
+* Updated list of old core files, so scan results categorize them as such rather than "suspicious";
+
 = 13.09 =
 * Added compatibility with WordPress 3.6.1;
 
@@ -154,6 +157,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 13.09.2 =
+Updated list of old core files, so scan results categorize them as such rather than "suspicious".
 
 = 13.09 =
 Added support for WordPress 3.6.1.

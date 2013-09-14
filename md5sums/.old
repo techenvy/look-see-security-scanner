@@ -1,3 +1,7 @@
+wp-admin/images/screenshots/about-color-picker.png
+wp-admin/images/screenshots/about-media.png
+wp-admin/images/screenshots/about-retina.png
+wp-admin/images/screenshots/about-twenty-twelve.png
 wp-admin/images/screenshots/captions-1.png
 wp-admin/images/screenshots/captions-2.png
 wp-admin/images/screenshots/flex-header-1.png
@@ -7,6 +11,11 @@ wp-admin/images/screenshots/flex-header-media-library.png
 wp-admin/images/screenshots/theme-customizer.png
 wp-admin/images/screenshots/twitter-embed-1.png
 wp-admin/images/screenshots/twitter-embed-2.png
+wp-admin/js/categories.js
+wp-admin/js/categories.min.js
+wp-admin/js/custom-fields.js
+wp-admin/js/custom-fields.min.js
+wp-admin/js/revisions-js.php
 wp-admin/js/utils.js
 wp-admin/options-privacy.php
 wp-includes/class-wp-atom-server.php
