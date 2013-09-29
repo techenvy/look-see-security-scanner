@@ -294,6 +294,19 @@ else {
 }//end scan progress
 ?>
 
+			<!-- About Us -->
+			<div class="postbox">
+				<div class="inside">
+					<a href="http://www.blobfolio.com/donate.html" title="Blobfolio, LLC" target="_blank"><img src="<?php echo esc_url(plugins_url('images/blobfolio.png', __FILE__)); ?>" class="logo" alt="Blobfolio logo"></a>
+
+					<p>We hope you find this plugin useful.  If you do, you might be interested in our other plugins, which are also completely free (and useful).</p>
+					<ul>
+						<li><a href="http://wordpress.org/plugins/apocalypse-meow/" target="_blank" title="Apocalypse Meow">Apocalypse Meow</a>: a simple, light-weight collection of tools to help protect wp-admin, including password strength requirements and brute-force log-in prevention.</li>
+						<li><a href="http://wordpress.org/plugins/sockem-spambots/" target="_blank" title="Sock'Em SPAMbots">Sock'Em SPAMbots</a>: a more seamless approach to deflecting the vast majority of SPAM comments.</li>
+					</ul>
+				</div>
+			</div><!--.postbox-->
+
 		</div><!--end sidebar-->
 
 		<div id="post-body-content" class="has-sidebar">

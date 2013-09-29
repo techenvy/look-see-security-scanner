@@ -66,6 +66,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 13.09.3 =
+* Minor branding update;
+
 = 13.09.2 =
 * Updated list of old core files, so scan results categorize them as such rather than "suspicious";
 
@@ -157,6 +160,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 13.09.3 =
+Minor branding update.
 
 = 13.09.2 =
 Updated list of old core files, so scan results categorize them as such rather than "suspicious".
