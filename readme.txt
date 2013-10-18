@@ -66,6 +66,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 13.10 =
+* Added option to scan only core files;
+
 = 13.09.3 =
 * Minor branding update;
 
@@ -160,6 +163,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 13.10 =
+Added option to scan only core files.
 
 = 13.09.3 =
 Minor branding update.

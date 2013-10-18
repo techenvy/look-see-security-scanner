@@ -102,12 +102,14 @@ if(getenv("REQUEST_METHOD") === "POST")
 	//Prepare for a Look-See Scan
 	elseif($_POST["action"] == 'looksee_scan_start')
 	{
+		$core_only = array_key_exists('looksee_core_only', $_POST) && intval($_POST['looksee_core_only']) === 1;
+
 		//bad nonce, no scan
 		if(!wp_verify_nonce($_POST['nonce_start'],'looksee_scan_start'))
 			$errors[] = 'Sorry the form had expired.  Please try again.';
 		elseif(looksee_is_scanning())
 			$errors[] = 'A scan is already underway!';
-		elseif(false !== looksee_scan_start())
+		elseif(false !== looksee_scan_start(false, $core_only))
 			echo '<div class="updated fade"><p>Let\'s have a look-see!</p></div>';
 		else
 			$errors[] = 'The scan could not be started.';
@@ -199,6 +201,10 @@ if(!looksee_is_scanning()) {
 				<h3 class="hndle">Run Scan Now</h3>
 				<div class="inside">
 					<ul>
+						<li>
+							<label for="looksee_core_only"><input type="checkbox" name="looksee_core_only" id="looksee_core_only" value="1" /> Core Scan only</label>
+							<p class="description">Check the above box to limit the scan to only WP core files. You should only run this limited scan if your server is too slow to run a complete scan.</p>
+						</li>
 						<li>
 							<input type="submit" value="Scan Now" />
 						</li>
@@ -414,6 +420,7 @@ elseif($scan_report['ended'] > 0)
 		'old'=>'The following files are no longer part of the WordPress core and can be safely deleted.  Go on!  A bit of spring cleaning every now and again will keep things nice and tidy!',
 		'skipped'=>'The following file(s) were skipped due to scan settings (e.g. they were too large, etc.).'
 	);
+
 ?>
 			<h3 class="hndle">Scan Results: <?php echo date("M j Y", floor($scan_report['ended'])); ?></h3>
 				<div class="inside">

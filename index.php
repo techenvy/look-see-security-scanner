@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 13.09.3
+Version: 13.10
 Author: Blobfolio, LLC
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -36,7 +36,7 @@ define('LOOKSEE_DB', '1.0.5');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
-define('LOOKSEE_VERSION', '13.09.3');
+define('LOOKSEE_VERSION', '13.10');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
@@ -341,8 +341,9 @@ function looksee_scan_report_clear(){
 // @since 3.5-3
 //
 // @param $background true/false
+// @param $core_only true/false
 // @return true/false
-function looksee_scan_start($background=false){
+function looksee_scan_start($background=false, $core_only=false){
 	//if a scan is already underway, we cannot start
 	if(looksee_is_scanning())
 		return false;
@@ -357,55 +358,66 @@ function looksee_scan_start($background=false){
 	$scan_report = looksee_get_option('looksee_scan_report');
 	$scan_report['started'] = looksee_microtime();
 
-	//remove entries for custom files that were missing (as of last scan)
-	$wpdb->query("DELETE FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND NOT(LENGTH(`md5_found`))");
-
-	//update checksums for custom files (using found values from last scan)
-	$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_expected`=`md5_found` WHERE NOT(LENGTH(`wp`))");
-
-	//determine whether there are new files to scan
-	$files_actual = array();
-	looksee_readdir(ABSPATH, $files_actual);
-	sort($files_actual);
-
-	//a good place to extend PHP's time limit
-	@set_time_limit(0);
-
-	$files_db = array();
-	$dbResult = $wpdb->get_results("SELECT `file` FROM `{$wpdb->prefix}looksee_files` ORDER BY `file` ASC", ARRAY_A);
-	if($wpdb->num_rows)
+	//core only?  much less perparation...
+	if($core_only === true)
 	{
-		foreach($dbResult AS $Row)
-			$files_db[] = $Row["file"];
-	}
-	$files_new = array_diff($files_actual, $files_db);
-
-	//clear some resources, oof!
-	unset($files_actual);
-	unset($files_db);
-
-	//if there are new files, add them to the database so they'll get scanned
-	if(count($files_new))
+		//delete any non-WP entries
+		$wpdb->query("DELETE FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`))");
+	}//end core only
+	//we're doing a full scan
+	else
 	{
-		$inserts = array();
-		foreach($files_new AS $f)
+		//remove entries for custom files that were missing (as of last scan)
+		$wpdb->query("DELETE FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND NOT(LENGTH(`md5_found`))");
+
+		//update checksums for custom files (using found values from last scan)
+		$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_expected`=`md5_found` WHERE NOT(LENGTH(`wp`))");
+
+		//determine whether there are new files to scan
+		$files_actual = array();
+		looksee_readdir(ABSPATH, $files_actual);
+		sort($files_actual);
+
+		//a good place to extend PHP's time limit
+		@set_time_limit(0);
+
+		$files_db = array();
+		$dbResult = $wpdb->get_results("SELECT `file` FROM `{$wpdb->prefix}looksee_files` ORDER BY `file` ASC", ARRAY_A);
+		if($wpdb->num_rows)
 		{
-			//add to the database in blocks
-			if(count($inserts) == LOOKSEE_SCAN_INTERVAL)
-			{
-				$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES " . implode(',', $inserts));
-				$inserts = array();
-
-				//a good place to extend PHP's time limit
-				@set_time_limit(0);
-			}
-			$inserts[] = "('" . esc_sql($f) . "')";
+			foreach($dbResult AS $Row)
+				$files_db[] = $Row["file"];
 		}
-		//add whatever's left to add
-		$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES " . implode(',', $inserts));
-		unset($inserts);
-	}
-	unset($files_new);
+		$files_new = array_diff($files_actual, $files_db);
+
+		//clear some resources, oof!
+		unset($files_actual);
+		unset($files_db);
+
+		//if there are new files, add them to the database so they'll get scanned
+		if(count($files_new))
+		{
+			$inserts = array();
+			foreach($files_new AS $f)
+			{
+				//add to the database in blocks
+				if(count($inserts) == LOOKSEE_SCAN_INTERVAL)
+				{
+					$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES " . implode(',', $inserts));
+					$inserts = array();
+
+					//a good place to extend PHP's time limit
+					@set_time_limit(0);
+				}
+				$inserts[] = "('" . esc_sql($f) . "')";
+			}
+			//add whatever's left to add
+			$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`) VALUES " . implode(',', $inserts));
+			unset($inserts);
+		}
+		unset($files_new);
+
+	}//end full scan
 
 	//queue up the files!
 	$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_found`='', `queued`=1, `skipped`=0");
