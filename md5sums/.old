@@ -11,6 +11,8 @@ wp-admin/images/screenshots/flex-header-media-library.png
 wp-admin/images/screenshots/theme-customizer.png
 wp-admin/images/screenshots/twitter-embed-1.png
 wp-admin/images/screenshots/twitter-embed-2.png
+wp-admin/js/cat.js
+wp-admin/js/cat.min.js
 wp-admin/js/categories.js
 wp-admin/js/categories.min.js
 wp-admin/js/custom-fields.js
@@ -20,4 +22,5 @@ wp-admin/js/utils.js
 wp-admin/options-privacy.php
 wp-includes/class-wp-atom-server.php
 wp-includes/js/swfupload/swfupload-all.js
+wp-includes/js/tinymce/plugins/wpeditimage/js/editimage.min.js
 wp-includes/js/tinymce/themes/advanced/skins/wp_theme/ui.css
