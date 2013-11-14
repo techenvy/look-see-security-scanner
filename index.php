@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 13.10.3
+Version: 13.11
 Author: Blobfolio, LLC
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -36,7 +36,7 @@ define('LOOKSEE_DB', '1.0.5');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
-define('LOOKSEE_VERSION', '13.10.3');
+define('LOOKSEE_VERSION', '13.11');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
@@ -62,6 +62,9 @@ function looksee_get_option($option){
 		//details about a scan's progress
 		case 'looksee_scan_report':
 			return get_option('looksee_scan_report', array('started'=>0,'ended'=>0,'errors'=>array(),'total'=>0,'scanned'=>0,'background'=>false));
+		//ignore cache files
+		case 'looksee_skip_cache':
+			return (bool) get_option('looksee_skip_cache', 1);
 	}
 
 	return get_option($option, false);
@@ -370,6 +373,10 @@ function looksee_scan_start($background=false, $core_only=false){
 		//remove entries for custom files that were missing (as of last scan)
 		$wpdb->query("DELETE FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND NOT(LENGTH(`md5_found`))");
 
+		//if we are skipping cache, delete any cache entries too
+		if(looksee_get_option('looksee_skip_cache') === true)
+			$wpdb->query("DELETE FROM `{$wpdb->prefix}looksee_files` WHERE  LEFT(`file`, 17) = 'wp-content/cache/'");
+
 		//update checksums for custom files (using found values from last scan)
 		$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_expected`=`md5_found` WHERE NOT(LENGTH(`wp`))");
 
@@ -446,6 +453,11 @@ function looksee_scan() {
 	{
 		global $wpdb;
 
+		//store MD5s in an array so we can update en masse later
+		$md5s = array();
+		//and store any skipped IDs so we can update those en masse too
+		$skipped = array();
+
 		$_POST = stripslashes_deep($_POST);  //take that, magic quotes!
 		if(check_ajax_referer( 'l00ks33n0nc3', 'looksee_nonce', false) && intval($wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files` WHERE `queued`=1")) > 0)
 		{
@@ -458,6 +470,8 @@ function looksee_scan() {
 			{
 				foreach($dbResult AS $Row)
 				{
+					$Row['id'] = (int) $Row['id'];
+
 					//the full file path
 					$file = looksee_straighten_windows(ABSPATH . $Row["file"]);
 
@@ -468,7 +482,7 @@ function looksee_scan() {
 						if($size === false || $size > $limit)
 						{
 							//skip it
-							$wpdb->update("{$wpdb->prefix}looksee_files", array('md5_found'=>'', 'queued'=>0, 'skipped'=>1), array('id'=>$Row["id"]), array('%s','%d', '%d'), '%d');
+							$skipped[] = $Row['id'];
 
 							continue;
 						}
@@ -478,7 +492,8 @@ function looksee_scan() {
 					if(!@file_exists($file) || false === ($md5 = md5_file($file)))
 						$md5 = '';
 
-					$wpdb->update("{$wpdb->prefix}looksee_files", array('md5_found'=>$md5, 'queued'=>0), array('id'=>$Row["id"]), array('%s','%d'), '%d');
+					//save the MD5 so we can update the database after the loop
+					$md5s[$Row['id']] = $md5;
 
 					//a good place to extend PHP's time limit
 					@set_time_limit(0);
@@ -486,6 +501,20 @@ function looksee_scan() {
 			}
 			else
 				$xout["error"] = -1;
+
+			//skipped anything?
+			if(count($skipped))
+				$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_found`='', `queued`=0, `skipped`=1 WHERE `id` IN (" . implode(',', $skipped) . ")");
+
+			//any MD5s?
+			if(count($md5s))
+			{
+				$query = "UPDATE `{$wpdb->prefix}looksee_files` SET `md5_found` = CASE `id`";
+				foreach($md5s AS $k=>$v)
+					$query .= "\nWHEN $k THEN '$v'";
+				$query .= "\nEND, `queued`=0 WHERE `id` IN (" . implode(',', array_keys($md5s)) . ")";
+				$wpdb->query($query);
+			}
 
 			//update counts
 			$scan_report = looksee_get_option('looksee_scan_report');
@@ -667,6 +696,10 @@ function looksee_readdir($dir, &$files) {
 	//no trailing slash
 	if(substr($dir, -1) == '/' || substr($dir, -1) == '\\')
 		$dir = substr($dir, 0, strlen($dir)-1);
+
+	//skipping cache?
+	if(looksee_get_option('looksee_skip_cache') === true && preg_match('/\/wp\-content\/cache$/', $dir))
+		return true;
 
 	if($handle = opendir($dir))
 	{

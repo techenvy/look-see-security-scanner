@@ -14,7 +14,7 @@ if (!defined('WP_UNINSTALL_PLUGIN'))
 	exit ();
 
 //remove options
-foreach(array('looksee_db_version','looksee_max_size','looksee_scan_report') AS $option)
+foreach(array('looksee_db_version','looksee_max_size','looksee_scan_report','looksee_skip_cache') AS $option)
 	delete_option($option);
 
 //try to remove the table... not all db uses will have this privilege

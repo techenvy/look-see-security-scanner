@@ -66,6 +66,11 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 13.11 =
+* Faster database I/O during scans (~2x faster);
+* Option to ignore WP cache files;
+* Updated SSL session analysis;
+
 = 13.10.3 =
 * Added compatibility with WordPress 3.7.1;
 * Dropped compatibility with WordPress 3.5.*;
@@ -170,6 +175,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 13.11 =
+Scan optimizations, and updated language on Analysis page.
 
 = 13.10.3 =
 Added compatibility with WordPress 3.7.1.

@@ -103,17 +103,15 @@ if(!defined('DISALLOW_FILE_EDIT') || !constant('DISALLOW_FILE_EDIT'))
 //--------------------------------------------------
 //define('FORCE_SSL_LOGIN', true);
 //define('FORCE_SSL_ADMIN', true);
-$ssl = array();
+echo '<li data-scan="ssl" class="looksee-status looksee-status-' . (!defined('FORCE_SSL_ADMIN') || !constant('FORCE_SSL_ADMIN') ? 'bad">User sessions are unencrypted.' : 'good">User sessions are encrypted.') . '</li>';
 if(!defined('FORCE_SSL_ADMIN') || !constant('FORCE_SSL_ADMIN'))
-	$ssl[] = '<code>define(\'FORCE_SSL_ADMIN\', true);</code>';
-if(!defined('FORCE_SSL_LOGIN') || !constant('FORCE_SSL_LOGIN'))
-	$ssl[] = '<code>define(\'FORCE_SSL_LOGIN\', true);</code>';
-echo '<li data-scan="ssl" class="looksee-status looksee-status-' . (count($ssl) ? 'bad">User sessions are unencrypted.' : 'good">User sessions are encrypted.') . '</li>';
-if(count($ssl))
 {
-	echo '<li class="looksee-status-details looksee-status-details-ssl looksee-status-details-description">If you have an SSL/TLS certificate for your site, tell WordPress to use it to enhance the security of your user sessions! Add the following to your wp-config.php:</li>';
-	foreach($ssl AS $s)
-		echo '<li class="looksee-status-details looksee-status-details-ssl">' . $s . '</li>';
+	echo '<li class="looksee-status-details looksee-status-details-ssl looksee-status-details-description">If you have an SSL/TLS certificate for your site, tell WordPress to use it to enhance the security of your user sessions!';
+	if(defined('FORCE_SSL_LOGIN') && constant('FORCE_SSL_LOGIN'))
+		echo 'You have FORCE_SSL_LOGIN, which is a good start, but this does not encrypt the admin traffic post-login. To do that, add the following to your wp-config.php:';
+	else
+		echo ' Add the following to your wp-config.php:</li>';
+	echo '<li class="looksee-status-details looksee-status-details-ssl"><code>define(\'FORCE_SSL_ADMIN\', true);</code></li>';
 }
 
 //--------------------------------------------------
