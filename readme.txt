@@ -3,7 +3,7 @@ Contributors: blobfolio
 Donate link: http://www.blobfolio.com/donate.html
 Tags: security, scanner, vulnerabilities, files, validation, auditor, validator, looksee, checker
 Requires at least: 3.6
-Tested up to: 3.8
+Tested up to: 3.8.1
 Stable tag: trunk
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -65,6 +65,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 3. Check configuration for oversights or vulnerabilities.
 
 == Changelog ==
+
+= 14.01 =
+* Added compatibility with WordPress 3.8.1;
 
 = 13.12 =
 * Added compatibility with WordPress 3.8;
@@ -178,6 +181,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 14.01 =
+Added compatibility with WordPress 3.8.1.
 
 = 13.12 =
 Added compatibility with WordPress 3.8.
