@@ -66,6 +66,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 14.04 =
+* Added compatibility with WordPress 3.8.2;
+
 = 14.01 =
 * Added compatibility with WordPress 3.8.1;
 
@@ -181,6 +184,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 14.04 =
+Added compatibility with WordPress 3.8.2.
 
 = 14.01 =
 Added compatibility with WordPress 3.8.1.
