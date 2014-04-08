@@ -3,13 +3,13 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 14.01
+Version: 14.04
 Author: Blobfolio, LLC
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
-	Copyright © 2013  Blobfolio, LLC  (email: hello@blobfolio.com)
+	Copyright © 2014  Blobfolio, LLC  (email: hello@blobfolio.com)
 
 	This program is free software; you can redistribute it and/or
 	modify it under the terms of the GNU General Public License
@@ -36,7 +36,7 @@ define('LOOKSEE_DB', '1.0.5');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
-define('LOOKSEE_VERSION', '14.01');
+define('LOOKSEE_VERSION', '14.04');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
