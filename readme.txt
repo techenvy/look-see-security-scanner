@@ -66,7 +66,7 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
-= 14.04.2 =
+= 14.04.3 =
 * Added compatibility with WordPress 3.8.3;
 
 = 14.04 =
@@ -188,7 +188,7 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Upgrade Notice ==
 
-= 14.04.2 =
+= 14.04.3 =
 Added compatibility with WordPress 3.8.3.
 
 = 14.04 =
