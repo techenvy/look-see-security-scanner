@@ -3,7 +3,7 @@ Contributors: blobfolio
 Donate link: http://www.blobfolio.com/donate.html
 Tags: security, scanner, vulnerabilities, files, validation, auditor, validator, looksee, checker
 Requires at least: 3.6
-Tested up to: 3.8.3
+Tested up to: 3.9
 Stable tag: trunk
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -66,17 +66,20 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 14.04.4 =
+* Checksums for WP 3.9;
+
 = 14.04.3 =
-* Added compatibility with WordPress 3.8.3;
+* Checksums for WP 3.8.3;
 
 = 14.04 =
-* Added compatibility with WordPress 3.8.2;
+* Checksums for WP 3.8.2;
 
 = 14.01 =
-* Added compatibility with WordPress 3.8.1;
+* Checksums for WP 3.8.1;
 
 = 13.12 =
-* Added compatibility with WordPress 3.8;
+* Checksums for WP 3.8;
 
 = 13.11 =
 * Faster database I/O during scans (~2x faster);
@@ -84,11 +87,11 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Updated SSL session analysis;
 
 = 13.10.3 =
-* Added compatibility with WordPress 3.7.1;
+* Checksums for WP 3.7.1;
 * Dropped compatibility with WordPress 3.5.*;
 
 = 13.10.2 =
-* Added compatibility with WordPress 3.7;
+* Checksums for WP 3.7;
 
 = 13.10 =
 * Added option to scan only core files;
@@ -100,7 +103,7 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Updated list of old core files, so scan results categorize them as such rather than "suspicious";
 
 = 13.09 =
-* Added compatibility with WordPress 3.6.1;
+* Checksums for WP 3.6.1;
 
 = 13.08.3 =
 * Fixed undefined variable PHP Notice;
@@ -110,10 +113,10 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Replace deprecated $wpdb->escape() with esc_sql().
 
 = 13.08 =
-* Added compatibility with WordPress 3.6;
+* Checksums for WP 3.6;
 
 = 13.07 =
-* Added compatibility with WordPress 3.5.2;
+* Checksums for WP 3.5.2;
 * Removed compatibility with WordPress 3.4.2;
 
 = 13.05 =
@@ -124,7 +127,7 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Minor speed improvements;
 
 = 13.01 =
-* Added compatibility with WordPress 3.5.1;
+* Checksums for WP 3.5.1;
 * Changed version naming scheme to YY.MM;
 
 = 3.5-6 =
@@ -155,7 +158,7 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Code clean up: all queries now run through $wpdb
 
 = 3.5 =
-* Added compatibility with WordPress 3.5;
+* Checksums for WP 3.5;
 
 = 3.4.2-7 =
 * Bug fix: case-insensitive indexes could prevent scanning all files;
@@ -188,26 +191,29 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Upgrade Notice ==
 
+= 14.04.4 =
+Checksums for WP 3.9.
+
 = 14.04.3 =
-Added compatibility with WordPress 3.8.3.
+Checksums for WP 3.8.3.
 
 = 14.04 =
-Added compatibility with WordPress 3.8.2.
+Checksums for WP 3.8.2.
 
 = 14.01 =
-Added compatibility with WordPress 3.8.1.
+Checksums for WP 3.8.1.
 
 = 13.12 =
-Added compatibility with WordPress 3.8.
+Checksums for WP 3.8.
 
 = 13.11 =
 Scan optimizations, and updated language on Analysis page.
 
 = 13.10.3 =
-Added compatibility with WordPress 3.7.1.
+Checksums for WP 3.7.1.
 
 = 13.10.2 =
-Added compatibility with WordPress 3.7.
+Checksums for WP 3.7.
 
 = 13.10 =
 Added option to scan only core files.
@@ -237,7 +243,7 @@ Minor update, replacing a couple functions that are deprecated as of PHP 5.5.0.
 Added compatibility for InnoDB.  NOTE: upgrading will erase currently stored scan info so you are encouraged to scan once before upgrading (to make sure nothing's out of the ordinary), and again afterward (to generate something to compare against next time).
 
 = 13.01 =
-Added compatibility with WordPress 3.5.1.
+Checksums for WP 3.5.1.
 
 = 3.5-6 =
 New features and bug fixes.
@@ -255,7 +261,7 @@ This release adds new features and performance improvements.
 This release contains a potential bug fix and code clean up.
 
 = 3.5 =
-Added compatibility with WordPress 3.5!
+Checksums for WP 3.5!
 
 = 3.4.2-7 =
 Fixed file name case-insensitivity issue and improved performance; it is recommended all users update.
