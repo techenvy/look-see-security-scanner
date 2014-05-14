@@ -66,6 +66,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 14.05.2 =
+* Checksums for WP 3.7.2 and 3.7.3;
+
 = 14.05 =
 * Checksums for WP 3.9.1;
 
@@ -193,6 +196,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 14.05.2 =
+* Checksums for WP 3.7.2 and 3.7.3;
 
 = 14.05 =
 Checksums for WP 3.9.1.
