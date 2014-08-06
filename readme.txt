@@ -3,7 +3,7 @@ Contributors: blobfolio
 Donate link: http://www.blobfolio.com/donate.html
 Tags: security, scanner, vulnerabilities, files, validation, auditor, validator, looksee, checker
 Requires at least: 3.7
-Tested up to: 3.9.1
+Tested up to: 3.9.2
 Stable tag: trunk
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -65,6 +65,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 3. Check configuration for oversights or vulnerabilities.
 
 == Changelog ==
+
+= 14.08 =
+* Checksums for WP 3.9.2;
 
 = 14.05.2 =
 * Checksums for WP 3.7.2 and 3.7.3;
@@ -197,8 +200,11 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Upgrade Notice ==
 
+= 14.08 =
+Checksums for WP 3.9.2.
+
 = 14.05.2 =
-* Checksums for WP 3.7.2 and 3.7.3;
+Checksums for WP 3.7.2 and 3.7.3.
 
 = 14.05 =
 Checksums for WP 3.9.1.
