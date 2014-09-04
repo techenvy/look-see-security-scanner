@@ -2,8 +2,8 @@
 Contributors: blobfolio
 Donate link: http://www.blobfolio.com/donate.html
 Tags: security, scanner, vulnerabilities, files, validation, auditor, validator, looksee, checker
-Requires at least: 3.7
-Tested up to: 3.9.2
+Requires at least: 3.9
+Tested up to: 4.0
 Stable tag: trunk
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -65,6 +65,10 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 3. Check configuration for oversights or vulnerabilities.
 
 == Changelog ==
+
+= 14.09 =
+* Checksums for WP 4.0;
+* Removed support for 3.7.* and 3.8.*;
 
 = 14.08 =
 * Checksums for WP 3.9.2;
@@ -199,6 +203,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 14.09 =
+Checksums for 4.0. New minimum supported version is 3.9.
 
 = 14.08 =
 Checksums for WP 3.9.2.
