@@ -156,6 +156,7 @@ if(getenv("REQUEST_METHOD") === "POST")
 		&nbsp;
 		<a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>" class="nav-tab nav-tab-active" title="Scan files">File system</a>
 		<a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-analysis')); ?>" class="nav-tab" title="Analyze configurations">Configuration analysis</a>
+		<a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-vulnerabilities')); ?>" class="nav-tab" title="Analyze plugins and themes">Plugins/Themes</a>
 	</h3>
 <?php
 //error output
@@ -199,7 +200,7 @@ if(is_dir(dirname(dirname(dirname(__FILE__))) . '/cache'))
 }
 ?>
 						<li>
-							<input type="submit" value="Save" />
+							<input type="submit" class="button" value="Save" />
 						</li>
 					</ul>
 				</div>
@@ -220,7 +221,7 @@ if(is_dir(dirname(dirname(dirname(__FILE__))) . '/cache'))
 							<p class="description">Check the above box to limit the scan to only WP core files. You should only run this limited scan if your server is too slow to run a complete scan.</p>
 						</li>
 						<li>
-							<input type="submit" value="Scan Now" />
+							<input type="submit" class="button" value="Scan Now" />
 						</li>
 					</ul>
 				</div>
@@ -238,7 +239,7 @@ if(is_dir(dirname(dirname(dirname(__FILE__))) . '/cache'))
 					<ul>
 						<li>If the server threw up an error during installation or if the installation was prematurely aborted, it is probably a good idea to give it another go.  Click the button below to re-install the definitions for WordPress <?php echo get_bloginfo('version'); ?>.</li>
 						<li>
-							<input type="submit" value="Reset" />
+							<input type="submit" class="button" value="Reset" />
 						</li>
 					</ul>
 				</div>
@@ -264,7 +265,7 @@ else {
 							<form id="form-looksee-core-scan" method="post" action="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>">
 								<?php wp_nonce_field('looksee_scan_abort','nonce_abort'); ?>
 								<input type="hidden" name="action" value="looksee_scan_abort" />
-								<input type="submit" value="Abort" />
+								<input type="submit" class="button" value="Abort" />
 							</form>
 						</li>
 					</ul>

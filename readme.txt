@@ -66,6 +66,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 14.12 =
+* Check plugins and themes against WPScan Vulnerability Database;
+
 = 14.11 =
 * Checksums for WP 4.0.1;
 
@@ -206,6 +209,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 14.12 =
+Check plugins and themes against WPScan Vulnerability Database.
 
 = 14.11 =
 Checksums for WP 4.0.1.

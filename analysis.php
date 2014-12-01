@@ -37,6 +37,7 @@ $current_plugins = get_option('active_plugins');
 		&nbsp;
 		<a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>" class="nav-tab" title="Scan files">File system</a>
 		<a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-analysis')); ?>" class="nav-tab nav-tab-active" title="Analyze configurations">Configuration analysis</a>
+		<a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-vulnerabilities')); ?>" class="nav-tab" title="Analyze plugins and themes">Plugins/Themes</a>
 	</h3>
 
 	<div class="metabox-holder has-right-sidebar">

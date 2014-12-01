@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 14.11
+Version: 14.12
 Author: Blobfolio, LLC
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -193,6 +193,13 @@ function looksee_security_scanner_menu(){
 	//attach javascript to it
 	add_action('admin_print_scripts-' . $page, 'looksee_enqueue_js');
 
+	//create the plugins/themes page
+	$page = add_submenu_page(null, 'Look-See Security Scanner: Plugins and Themes', 'Look-See Security Scanner: Plugins and Themes', 'manage_options', 'looksee-security-vulnerabilities', 'looksee_security_vulnerabilities');
+	//attach stylesheet to it
+	add_action('admin_print_styles-' . $page, 'looksee_enqueue_css');
+	//attach javascript to it
+	add_action('admin_print_scripts-' . $page, 'looksee_enqueue_js');
+
 	return true;
 }
 add_action('admin_menu', 'looksee_security_scanner_menu');
@@ -222,6 +229,20 @@ function looksee_security_scanner(){
 // @return true
 function looksee_security_analysis(){
 	require_once(dirname(__FILE__) . '/analysis.php');
+	return true;
+}
+
+//--------------------------------------------------
+//The Look-See Plugins and Themes page
+//
+// this is an external file (vulnerabilities.php)
+//
+// @since 14.12
+//
+// @param n/a
+// @return true
+function looksee_security_vulnerabilities(){
+	require_once(dirname(__FILE__) . '/vulnerabilities.php');
 	return true;
 }
 
