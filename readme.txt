@@ -21,6 +21,7 @@ Look-see Security Scanner is a relatively quick and painless way to locate the s
   * Identify file changes since previous scan;
   * Locate files left over from older versions of WordPress;
   * Analyze configurations for oversights and vulnerabilities;
+  * Check uploaded themes and plugins against the WPScan Vulnerabilities Database;
 
 == Installation ==
 
