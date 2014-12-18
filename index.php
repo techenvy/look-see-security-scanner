@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 14.12
+Version: 14.12-2
 Author: Blobfolio, LLC
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -36,7 +36,7 @@ define('LOOKSEE_DB', '1.0.5');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
-define('LOOKSEE_VERSION', '14.12');
+define('LOOKSEE_VERSION', '14.12-2');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
@@ -566,6 +566,90 @@ add_action('wp_ajax_looksee_scan', 'looksee_scan');
 //----------------------------------------------------------------------
 
 //--------------------------------------------------
+//Load checksums
+//
+// this gets the checksums for the current version
+// from WordPress and strips out the wp-content
+// stuff.
+//
+// @since 14.12-2
+//
+// @param version
+// @return checksums or false
+function looksee_get_checksums($version=null){
+	//make sure update.php is loaded
+	@require_once(ABSPATH . 'wp-admin/includes/update.php');
+
+	//default to current version
+	if(is_null($version))
+		$version = get_bloginfo('version');
+
+	$checksums = array();
+	$tmp = get_core_checksums($version, get_locale());
+
+	//if this is not an array or is in some other way bad, return false
+	if(!is_array($tmp) || !count($tmp))
+		return false;
+
+	//sanitize the output
+	foreach($tmp AS $k=>$v)
+	{
+		//skip wp-content
+		if(preg_match('/^wp\-content/', $k))
+			continue;
+
+		$checksums[looksee_straighten_windows($k)] = $v;
+	}
+
+	return $checksums;
+}
+
+//--------------------------------------------------
+//Get releases
+//
+// compile an array of all WordPress releases. for
+// some reason this isn't part of the API, so we
+// need to do some hacking.
+//
+// @since 14.12-2
+//
+// @param min (inclusive)
+// @param max (inclusive)
+// @return array or false
+function looksee_get_releases($min=null, $max=null){
+	$versions = array();
+
+	//to get the versions, let's try to parse the archive download page
+	$url = 'https://wordpress.org/download/release-archive/';
+	$page = wp_remote_get($url);
+	if(!is_array($page) || !array_key_exists('body', $page) || !strlen($page['body']))
+		return false;
+	$page = $page['body'];
+
+	//search for X.X.X.zip to find the versions
+	preg_match_all('/wordpress\-(\d+\.\d+(\.\d+){0,1})\.zip/', $page, $results);
+
+	//nothing?
+	if(!is_array($results) || !count($results) || !count($results[1]))
+		return false;
+
+	//loop through
+	foreach($results[1] AS $version)
+	{
+		//enforce min/max
+		if((!is_null($min) && $version < $min) || (!is_null($max) && $version > $max))
+			continue;
+
+		$versions[] = (string) $version;
+	}
+
+	sort($versions);
+	$versions = array_unique($versions);
+
+	return $versions;
+}
+
+//--------------------------------------------------
 //Install core definitions
 //
 // @since 3.5-3
@@ -573,7 +657,7 @@ add_action('wp_ajax_looksee_scan', 'looksee_scan');
 // @param $reinstall re-install if already installed?
 // @return true/false
 function looksee_install_core_definitions($reinstall=false){
-	if(!looksee_support_version() || ($reinstall === false && looksee_support_version_installed()))
+	if(($reinstall === false && looksee_support_version_installed()))
 		return false;
 
 	//if a scan is in progress, we need to kill it:
@@ -584,17 +668,17 @@ function looksee_install_core_definitions($reinstall=false){
 
 	//the version of wordpress installed
 	$wp_version = esc_sql(get_bloginfo('version'));
-	//the file containing the core definitions for this version
-	$md5_core_file = looksee_straighten_windows(dirname(__FILE__) . '/md5sums/' . get_bloginfo('version') . '.md5');
+	//the checksums for this version
+	if(false === ($checksums = looksee_get_checksums()))
+		return false;
 
 	//if we are forcing a refresh, let's delete all WP definitions to clear out any garbage that might be there
 	if($reinstall === true)
 		$wpdb->query("DELETE FROM `{$wpdb->prefix}looksee_files` WHERE LENGTH(`wp`)");
 
 	//load core checksums from file
-	$tmp = explode("\n", @file_get_contents($md5_core_file));
 	$inserts = array();
-	foreach($tmp AS $line)
+	foreach($checksums AS $file=>$md5)
 	{
 		//update in chunks!
 		if(count($inserts) === LOOKSEE_SCAN_INTERVAL)
@@ -602,16 +686,10 @@ function looksee_install_core_definitions($reinstall=false){
 			$wpdb->query("INSERT INTO `{$wpdb->prefix}looksee_files` (`file`,`wp`,`md5_expected`) VALUES " . implode(',', $inserts) . " ON DUPLICATE KEY UPDATE `wp`='$wp_version', `md5_expected`=VALUES(`md5_expected`), `md5_saved`='',`md5_found`='',`skipped`=0");
 			$inserts = array();
 		}
-		$line = trim($line);
-		if(strlen($line) > 34)
-		{
-			$md5 = substr($line, 0, 32);
-			$file = esc_sql(trim(substr($line, 34)));
 
-			//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish
-			if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && filter_var($file, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_core_file')))
-				$inserts[] = "('$file','$wp_version','$md5')";
-		}
+		//there is an implicit trust that these values are correct, but let's at least make sure the entry looks right-ish
+		if(filter_var($md5, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_md5')) && filter_var($file, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_core_file')))
+			$inserts[] = "('$file','$wp_version','$md5')";
 	}
 	//save whatever's left over
 	if(count($inserts))
@@ -630,25 +708,60 @@ function looksee_install_core_definitions($reinstall=false){
 //--------------------------------------------------
 //Find "old" files
 //
+// compare all releases against the current
+// version to see which files have vanished. WP only
+// stores checksums beginning 3.6, so that's as far
+// back as we can go.
+//
+// because the lookups can take a little time, the
+// results are cached for 24 hours.
+//
 // @since 3.5-4
 //
 // @param n/a
 // @return array
 function looksee_get_old_core_definitions(){
+	//we temporarily cache this, so maybe we can save some time?
+	$transient_key = 'looksee_old_' . get_bloginfo('version');
+	if(false !== ($cache = get_transient($transient_key)))
+		return $cache;
+
+	$current = array();
 	$old = array();
-	$old_file = looksee_straighten_windows(dirname(__FILE__) . '/md5sums/.old');
 
-	if(!file_exists($old_file))
-		return $old;
+	//get releases between 3.6 (the oldest with checksums) and current
+	if(false === ($versions = looksee_get_releases('3.6', get_bloginfo('version'))))
+		return false;
 
-	$tmp = explode("\n", @file_get_contents($old_file));
-	foreach($tmp AS $line)
+	//we need at least 2 entries if there is to be a comparison
+	if(count($versions) <= 1)
+		return false;
+
+	//build the file lists.  we'll use the checksum API, but really we just want the file paths
+	foreach($versions AS $version)
 	{
-		$line = trim($line);
-		//there is an implicit trust that the values are correct, but let's at least make sure the entry looks right-ish
-		if(filter_var($line, FILTER_CALLBACK, array('options'=>'looksee_filter_validate_core_file')))
-			$old[] = $line;
+		if(false === ($tmp = looksee_get_checksums($version)))
+			continue;
+
+		$tmp = array_keys($tmp);
+
+		if($version === get_bloginfo('version'))
+			$current = $tmp;
+		else
+			$old = array_merge($old, $tmp);
 	}
+
+	//sort and unique-ize old and current
+	sort($old);
+	$old = array_unique($old);
+	sort($current);
+
+	//and now get rid of current files from old
+	$old = array_diff($old, $current);
+	sort($old);
+
+	//save cache for 24 hours
+	set_transient($transient_key, $old, 86400);
 
 	return $old;
 }
@@ -660,17 +773,6 @@ function looksee_get_old_core_definitions(){
 //----------------------------------------------------------------------
 //  What is supported?
 //----------------------------------------------------------------------
-
-//--------------------------------------------------
-//Support for core version
-//
-// @since 3.4.2-3
-//
-// @param n/a
-// @return true/false
-function looksee_support_version(){
-	return @file_exists(looksee_straighten_windows(dirname(__FILE__) . '/md5sums/' . get_bloginfo('version') . '.md5'));
-}
 
 //--------------------------------------------------
 //Support for md5_file()

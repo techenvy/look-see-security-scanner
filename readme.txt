@@ -2,8 +2,8 @@
 Contributors: blobfolio
 Donate link: http://www.blobfolio.com/donate.html
 Tags: security, scanner, vulnerabilities, files, validation, auditor, validator, looksee, checker
-Requires at least: 3.9
-Tested up to: 4.0.1
+Requires at least: 3.6
+Tested up to: 4.1
 Stable tag: trunk
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -15,11 +15,10 @@ Verify the integrity of a WP installation by scanning for unexpected or modified
 Look-see Security Scanner is a relatively quick and painless way to locate the sorts of file irregularities that turn up when a site is hacked.  This is broken down into multiple searches:
 
   * Verify the integrity of all core WordPress files;
-  * Search wp-admin/ for unexpected files;
-  * Search wp-includes/ for unexpected files;
+  * Search wp-admin/ and wp-includes/ for unexpected files;
   * Search wp-content/uploads/ for hidden PHP scripts;
   * Identify file changes since previous scan;
-  * Locate files left over from older versions of WordPress;
+  * Locate files left over from older versions (3.6+) of WordPress;
   * Analyze configurations for oversights and vulnerabilities;
   * Check uploaded themes and plugins against the WPScan Vulnerabilities Database;
 
@@ -39,10 +38,6 @@ The plugin is only meant to be used with single-site WordPress installations.  S
 
 No, Look-See merely points out any irregularities it finds.  It is left to you to manually review any affected files to determine whether or not they pose a threat.
 
-= How long does it take for new file databases to be released? =
-
-We generally have a new file database ready to go within 24 hours of a new WordPress release (we're nerds).
-
 = Is there anything I can do to keep my server from modifying files as I upload them? That is annoying! =
 
 Take a look at your FTP program's settings and change the transfer type from ASCII (or automatic) to Binary.  If your program doesn't support this, try FileZilla: http://filezilla-project.org/.
@@ -50,10 +45,6 @@ Take a look at your FTP program's settings and change the transfer type from ASC
 = If there are no warnings, does that mean I am A-OK? =
 
 Not necessarily. There could still be backdoors elsewhere on the server. As always, we recommend you maintain best security practices and keep regular back-ups.
-
-= Will you continue supporting older versions of WordPress? =
-
-Don't count on it.  As a general rule, you should always be running the latest version of WordPress anyway.  Not doing so is not safe.
 
 = Can scans be automated? =
 
@@ -66,6 +57,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 3. Check configuration for oversights or vulnerabilities.
 
 == Changelog ==
+
+= 14.12-2 =
+* Look-See now gets its checksums directly from WordPress, so version support is more or less automatic and includes locale support;
 
 = 14.12 =
 * Check plugins and themes against WPScan Vulnerability Database;
@@ -210,6 +204,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 14.12-2 =
+Look-See now gets its checksums directly from WordPress, so version support is more or less automatic and includes locale support.
 
 = 14.12 =
 Check plugins and themes against WPScan Vulnerability Database.

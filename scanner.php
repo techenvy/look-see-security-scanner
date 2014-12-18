@@ -33,10 +33,6 @@ global $wpdb;
 //--------------------------------------------------
 //Check server/plugin support
 
-//is there a version file?
-if(!looksee_support_version())
-	$errors[] = 'There is no file database for your version of WP (' . get_bloginfo('version') . ').  Double-check for available <a href="' . esc_url(admin_url('update-core.php')) . '" title="WordPress updates">software updates</a>, as applying them may well fix this problem.';
-
 //can PHP generate MD5s?
 if(!looksee_support_md5())
 	$errors[] = 'This server does not support MD5 checksum generation, which is required to verify the integrity of your files.';
@@ -404,7 +400,9 @@ elseif($scan_report['ended'] > 0)
 	$dbResult = $wpdb->get_results("SELECT `file` FROM `{$wpdb->prefix}looksee_files` WHERE NOT(LENGTH(`wp`)) AND LENGTH(`md5_found`) AND `skipped`=0 AND (`file` LIKE 'wp-admin/%' OR `file` LIKE 'wp-includes/%' OR `file` LIKE 'wp-content/uploads/%.php') ORDER BY `file` ASC", ARRAY_A);
 	if($wpdb->num_rows)
 	{
-		$core_old = looksee_get_old_core_definitions();
+		//if we can't build the old files, just make an empty array
+		if(false === ($core_old = looksee_get_old_core_definitions()))
+			$core_old = array();
 
 		//first, let's take a
 		foreach($dbResult AS $Row)
