@@ -272,12 +272,10 @@ else {
 
 	//the actual scanning is done via AJAX so it can be split into chunks with progress updates
 	function looksee_scan(){
-		jQuery.post(ajaxurl, {action:'looksee_scan',looksee_nonce:'<?php echo wp_create_nonce("l00ks33n0nc3");?>'}, function(data){
+		jQuery.post(ajaxurl, {action:'looksee_scan',looksee_nonce:'<?php echo wp_create_nonce("l00ks33n0nc3");?>'}, function(response){
 
-			try {
-				response = jQuery.parseJSON(data);
-			}
-			catch(e){
+			if(!looksee.isJSON(response))
+			{
 				jQuery("#looksee-scan-label").text('The server choked and returned bad data!');
 				jQuery('input[type=submit]', jQuery('#form-looksee-core-scan')).remove();
 				jQuery('#form-looksee-core-scan').append('<p>Click <a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>" title="Reset">here</a> to reset and try again.</p>');
@@ -291,7 +289,10 @@ else {
 				jQuery("#looksee-scan-label").text('Finished scanning ' + response.completed + ' files!');
 				jQuery("#looksee-scan-bar").css('width', response.percent + '%');
 				jQuery('input[type=submit]', jQuery('#form-looksee-core-scan')).remove();
-				jQuery('#form-looksee-core-scan').append('<p>Click <a href="<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?>" title="Results">here</a> to see the results.</p>');
+				jQuery('#form-looksee-core-scan').append('<p class="looksee-scan-finished">Loading results...</p>');
+				jQuery('.looksee-scan-results-wrapper').load('<?php echo esc_url(admin_url('tools.php?page=looksee-security-scanner')); ?> .looksee-scan-results', function(){
+					jQuery('.looksee-scan-finished').remove();
+				});
 				return;
 			}
 
@@ -330,7 +331,8 @@ else {
 			<div class="has-sidebar-content">
 
 				<!--start scan history-->
-				<div class="postbox">
+				<div class="looksee-scan-results-wrapper">
+					<div class="postbox looksee-scan-results">
 <?php
 
 //scan details
@@ -475,8 +477,9 @@ elseif($scan_report['ended'] > 0)
 else
 	echo '<h3 class="hndle">Scan Results</h3><div class="inside"><p>There are no scan results to report.  Click the SCAN NOW button at right to begin!</p>';
 ?>
+						</div>
 					</div>
-				</div>
+				</div><!--.looksee-scan-results-wrapper-->
 				<!--end scan history-->
 
 			</div><!--end .has-sidebar-content-->

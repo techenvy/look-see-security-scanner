@@ -58,6 +58,10 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 15.02 =
+* UX improvements;
+* Code clean up;
+
 = 14.12-2 =
 * Look-See now gets its checksums directly from WordPress, so version support is more or less automatic and includes locale support;
 

@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 14.12-2
+Version: 15.02
 Author: Blobfolio, LLC
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -36,7 +36,7 @@ define('LOOKSEE_DB', '1.0.5');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
-define('LOOKSEE_VERSION', '14.12-2');
+define('LOOKSEE_VERSION', '15.02');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
@@ -279,7 +279,7 @@ function looksee_enqueue_css(){
 // @param n/a
 // @return true
 function looksee_register_js(){
-	wp_register_script('looksee_js', plugins_url('looksee.js', __FILE__),  array('jquery'), LOOKSEE_VERSION);
+	wp_register_script('looksee_js', plugins_url('looksee.min.js', __FILE__),  array('jquery'), LOOKSEE_VERSION);
 	return true;
 }
 add_action('admin_init','looksee_register_js');
@@ -552,8 +552,7 @@ function looksee_scan() {
 		}
 	}
 
-	echo json_encode($xout);
-	die();
+	wp_send_json($xout);
 }
 add_action('wp_ajax_looksee_scan', 'looksee_scan');
 

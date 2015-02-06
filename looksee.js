@@ -1,23 +1,77 @@
-//more or less equivalent of PHP's htmlspecialchars()
-function htmlspecialchars(string){ return jQuery('<span>').text(string).html(); }
+var looksee = null;
 
-jQuery(document).ready(function(){
+(function($){
+	looksee = {
 
-	//toggle detailed display
-	jQuery("li.looksee-status-bad").click(function(){
-		var obj = jQuery(".looksee-status-details-" + jQuery(this).attr('data-scan'));
-		if(obj.css('display') == 'none')
-			obj.css('display','block');
-		else
-			obj.css('display','none');
+		//------------------------------------------------------------------------
+		// Some initializations that need to run when the doc is ready
+		//------------------------------------------------------------------------
+
+		init: function() {
+
+		},
+
+
+
+		//------------------------------------------------------------------------
+		// Functions triggered by user action (e.g. click)
+		//------------------------------------------------------------------------
+
+		interactive: function() {
+
+			//toggle detailed display
+			$('body').on('click', "li.looksee-status-bad", function(){
+				var obj = $(".looksee-status-details-" + $(this).attr('data-scan'));
+				if(obj.css('display') == 'none')
+					obj.css('display','block');
+				else
+					obj.css('display','none');
+			});
+
+			//elaborate on what settings do
+			$('body').on('click', ".settings-help", function(e){
+				e.preventDefault();
+				var title = $(this).attr('data-help');
+				if(title.length)
+					alert(title);
+			});
+
+		},
+
+		//------------------------------------------------------------------------ end interactive
+
+
+
+		//------------------------------------------------------------------------
+		// Custom functions
+		//------------------------------------------------------------------------
+
+		//-------------------------------------------------
+		// MISC DATA HELPERS
+
+		//test whether object is json
+		isJSON: function(value) {
+			try {
+				JSON.stringify(value);
+				return true;
+			}
+			catch (ex) {
+				return false;
+			}
+		}
+
+		//------------------------------------------------------------------------ end custom functions
+	};
+
+	//call some stuff when the document is ready
+	$(document).ready(function(){
+
+		//bind interactive events
+		looksee.interactive();
+
+		//initialize
+		looksee.init();
+
 	});
 
-	//elaborate on what settings do
-	jQuery(".settings-help").click(function(e){
-		e.preventDefault();
-		var title = jQuery(this).attr('data-help');
-		if(title.length)
-			alert(title);
-	});
-
-});
+})(jQuery);
