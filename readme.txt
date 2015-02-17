@@ -58,6 +58,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 15.02-2 =
+* Small db change;
+
 = 15.02 =
 * UX improvements;
 * Code clean up;
@@ -208,6 +211,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 15.02-2 =
+Small db change.
 
 = 15.02 =
 UX improvements and code clean up.

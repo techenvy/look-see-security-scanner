@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 15.02
+Version: 15.02-2
 Author: Blobfolio, LLC
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -32,7 +32,7 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 //  Constants, globals, and variable handling
 //----------------------------------------------------------------------
 //the database version
-define('LOOKSEE_DB', '1.0.5');
+define('LOOKSEE_DB', '1.1.0');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
@@ -104,7 +104,7 @@ function looksee_SQL(){
 	// `skipped` was this file check skipped?
 	$sql = "CREATE TABLE {$wpdb->prefix}looksee_files (
   id bigint(15) NOT NULL AUTO_INCREMENT,
-  file varbinary(300) NOT NULL,
+  file varchar(300) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
   wp varchar(10) DEFAULT '' NOT NULL,
   md5_expected char(32) DEFAULT '' NOT NULL,
   md5_found char(32) DEFAULT '' NOT NULL,
