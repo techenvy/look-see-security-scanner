@@ -58,6 +58,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 
 == Changelog ==
 
+= 15.03-2 =
+* Improve compatibility with InnoDB installations;
+
 = 15.03 =
 * Check for existence of MySQL table before prompting to install checksums;
 
@@ -214,6 +217,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 15.03-2 =
+Improve compatibility with InnoDB installations.
 
 = 15.03 =
 Check for existence of MySQL table before prompting to install checksums.

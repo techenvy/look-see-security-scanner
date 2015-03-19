@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 15.03
+Version: 15.03-2
 Author: Blobfolio, LLC
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -32,11 +32,11 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 //  Constants, globals, and variable handling
 //----------------------------------------------------------------------
 //the database version
-define('LOOKSEE_DB', '1.1.0');
+define('LOOKSEE_DB', '1.1.1');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
-define('LOOKSEE_VERSION', '15.03');
+define('LOOKSEE_VERSION', '15.03-2');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
@@ -104,7 +104,7 @@ function looksee_SQL(){
 	// `skipped` was this file check skipped?
 	$sql = "CREATE TABLE {$wpdb->prefix}looksee_files (
   id bigint(15) NOT NULL AUTO_INCREMENT,
-  file varchar(300) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+  file varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
   wp varchar(10) DEFAULT '' NOT NULL,
   md5_expected char(32) DEFAULT '' NOT NULL,
   md5_found char(32) DEFAULT '' NOT NULL,
@@ -810,6 +810,8 @@ function looksee_support_version_installed(){
 //
 // @since 3.4.2-7
 //
+// skip paths that are longer than 255
+//
 // @param $dir directory to search
 // @param $files, by reference
 // @return array files or false
@@ -832,7 +834,7 @@ function looksee_readdir($dir, &$files) {
 				$path = looksee_straighten_windows($dir . '/' . $file);
 				if(is_dir($path))
 					looksee_readdir($path, $files);
-				else
+				elseif(strlen($path) <= 255)
 					$files[] = str_replace(ABSPATH, '', $path);
 			}
 		}
