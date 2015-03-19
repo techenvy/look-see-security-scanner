@@ -78,7 +78,7 @@ if(count($errors))
 		<p>You can manually run the following MySQL command to build the missing table:</p>
 			<textarea readonly onclick="this.select();" style="width: 100%; display: block; height: 200px;">CREATE TABLE <?php echo $wpdb->prefix; ?>looksee_files (
   id bigint(15) NOT NULL AUTO_INCREMENT,
-  file varchar(300) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+  file varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
   wp varchar(10) DEFAULT '' NOT NULL,
   md5_expected char(32) DEFAULT '' NOT NULL,
   md5_found char(32) DEFAULT '' NOT NULL,
