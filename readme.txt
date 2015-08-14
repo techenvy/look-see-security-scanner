@@ -21,6 +21,7 @@ Look-see Security Scanner is a relatively quick and painless way to locate the s
   * Locate files left over from older versions (3.6+) of WordPress;
   * Analyze configurations for oversights and vulnerabilities;
   * Check uploaded themes and plugins against the WPScan Vulnerabilities Database;
+  * Search files for functions commonly used by malware;
 
 == Installation ==
 
@@ -46,6 +47,14 @@ Take a look at your FTP program's settings and change the transfer type from ASC
 
 Not necessarily. There could still be backdoors elsewhere on the server. As always, we recommend you maintain best security practices and keep regular back-ups.
 
+= Is there a faster way to run the content analysis? My server is too slow! =
+
+If you have command line access to your server, a command like the following will return a list of files containing various "blacklisted" functions.  (Just update the path at the end.)
+
+`grep -E -r "\b(fsockopen|pfsockopen|proc_open|curl|exec|shell_exec|eval|hex2bin|base64_decode|passthru|unserialize|pcntl_alarm|pcntl_fork|pcntl_waitpid|pcntl_wait|pcntl_wifexited|pcntl_wifstopped|pcntl_wifsignaled|pcntl_wexitstatus|pcntl_wtermsig|pcntl_wstopsig|pcntl_signal|pcntl_signal_dispatch|pcntl_get_last_error|pcntl_strerror|pcntl_sigprocmask|pcntl_sigwaitinfo|pcntl_sigtimedwait|pcntl_exec|pcntl_getpriority|pcntl_setpriority)\s*\(" --include "*.php" /path/to/wp-content/`
+
+Remember, these functions do have perfectly legitimate uses, so most of the results will probably be innocent.  Still, it won't hurt to take a look.
+
 = Can scans be automated? =
 
 Not yet, sorry.  Automated scans will probably be integrated into a future release, so stay tuned!
@@ -57,6 +66,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 3. Check configuration for oversights or vulnerabilities.
 
 == Changelog ==
+
+= 15.08 =
+* Search files for common malware functions;
 
 = 15.03-2 =
 * Improve compatibility with InnoDB installations;
@@ -217,6 +229,9 @@ Not yet, sorry.  Automated scans will probably be integrated into a future relea
 * Look-See is born!
 
 == Upgrade Notice ==
+
+= 15.08 =
+Ability to search files for common malware functions.
 
 = 15.03-2 =
 Improve compatibility with InnoDB installations.

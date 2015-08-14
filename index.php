@@ -3,7 +3,7 @@
 Plugin Name: Look-See Security Scanner
 Plugin URI: http://wordpress.org/extend/plugins/look-see-security-scanner/
 Description: Verify the integrity of a WP installation by scanning for unexpected or modified files.
-Version: 15.03-2
+Version: 15.08
 Author: Blobfolio, LLC
 Author URI: http://www.blobfolio.com/
 License: GPLv2 or later
@@ -32,11 +32,11 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 //  Constants, globals, and variable handling
 //----------------------------------------------------------------------
 //the database version
-define('LOOKSEE_DB', '1.1.1');
+define('LOOKSEE_DB', '1.2');
 //the number of files to scan in a single pass
 define('LOOKSEE_SCAN_INTERVAL', 250);
 //the plugin version
-define('LOOKSEE_VERSION', '15.03-2');
+define('LOOKSEE_VERSION', '15.08');
 
 //--------------------------------------------------
 //a get_option wrapper that deals with defaults and
@@ -47,7 +47,6 @@ define('LOOKSEE_VERSION', '15.03-2');
 // @param $option option_name
 // @return option_value or false
 function looksee_get_option($option){
-
 	switch($option)
 	{
 		//ignore files larger than X
@@ -65,6 +64,9 @@ function looksee_get_option($option){
 		//ignore cache files
 		case 'looksee_skip_cache':
 			return (bool) get_option('looksee_skip_cache', 1);
+		//look inside of files
+		case 'looksee_inside':
+			return (bool) get_option('looksee_inside', 0);
 	}
 
 	return get_option($option, false);
@@ -102,6 +104,7 @@ function looksee_SQL(){
 	// `md5_saved` an alternate checksum deemed by the user to be A-OK
 	// `queued` is it scheduled to be scanned? 1/0
 	// `skipped` was this file check skipped?
+	// `suspect_code` does this file maybe contain something suspicious?
 	$sql = "CREATE TABLE {$wpdb->prefix}looksee_files (
   id bigint(15) NOT NULL AUTO_INCREMENT,
   file varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
@@ -111,11 +114,13 @@ function looksee_SQL(){
   md5_saved char(32) DEFAULT '' NOT NULL,
   queued tinyint(1) DEFAULT 0 NOT NULL,
   skipped tinyint(1) DEFAULT 0 NOT NULL,
+  suspect_code tinyint(1) DEFAULT 0 NOT NULL,
   PRIMARY KEY  (id),
   UNIQUE KEY file (file),
   KEY wp (wp),
   KEY queued (queued),
-  KEY skipped (skipped)
+  KEY skipped (skipped),
+  KEY suspect_code (suspect_code)
 );";
 
 	require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
@@ -448,7 +453,7 @@ function looksee_scan_start($background=false, $core_only=false){
 	}//end full scan
 
 	//queue up the files!
-	$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_found`='', `queued`=1, `skipped`=0");
+	$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_found`='', `queued`=1, `skipped`=0, `suspect_code`=0");
 
 	//how many files are we scanning for?
 	$scan_report["total"] = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files`");
@@ -478,12 +483,17 @@ function looksee_scan() {
 		$md5s = array();
 		//and store any skipped IDs so we can update those en masse too
 		$skipped = array();
+		//and store any suspicious IDs for en masse updating
+		$suspected = array();
 
 		$_POST = stripslashes_deep($_POST);  //take that, magic quotes!
 		if(check_ajax_referer( 'l00ks33n0nc3', 'looksee_nonce', false) && intval($wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}looksee_files` WHERE `queued`=1")) > 0)
 		{
-			//are we limiting by filesize?
+			//are we limiting by filesize? (bytes)
 			$limit = looksee_get_option('looksee_max_size') * 1024 * 1024;
+
+			//are we checking inside files?
+			$inside = looksee_get_option('looksee_inside');
 
 			//files to check
 			$dbResult =  $wpdb->get_results("SELECT `id`, `file` FROM `{$wpdb->prefix}looksee_files` WHERE `queued`=1 ORDER BY `id` ASC LIMIT " . LOOKSEE_SCAN_INTERVAL, ARRAY_A);
@@ -516,6 +526,10 @@ function looksee_scan() {
 					//save the MD5 so we can update the database after the loop
 					$md5s[$Row['id']] = $md5;
 
+					//inspect the file?
+					if($inside && true === looksee_is_suspicious_code($Row['file']))
+						$suspected[] = $Row['id'];
+
 					//a good place to extend PHP's time limit
 					@set_time_limit(0);
 				}
@@ -526,6 +540,10 @@ function looksee_scan() {
 			//skipped anything?
 			if(count($skipped))
 				$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `md5_found`='', `queued`=0, `skipped`=1 WHERE `id` IN (" . implode(',', $skipped) . ")");
+
+			//anything suspect?
+			if(count($suspected))
+				$wpdb->query("UPDATE `{$wpdb->prefix}looksee_files` SET `suspect_code`=1 WHERE `id` IN (" . implode(',', $suspected) . ")");
 
 			//any MD5s?
 			if(count($md5s))
@@ -555,6 +573,63 @@ function looksee_scan() {
 	wp_send_json($xout);
 }
 add_action('wp_ajax_looksee_scan', 'looksee_scan');
+
+//--------------------------------------------------
+//Analyze File
+//
+// check text files for suspicious functions or
+// blocks of text. returns true if something a bit
+// suspect is found.
+//
+// @param path (relative)
+// @return true/false
+function looksee_is_suspicious_code($path){
+
+	static $core;
+	global $wpdb;
+
+	//we can ignore core files because any change to one is a bad change :)
+	if(is_null($core))
+	{
+		$dbResult = $wpdb->get_results("SELECT `file` FROM `{$wpdb->prefix}looksee_files` WHERE LENGTH(`wp`) ORDER BY `file` ASC", ARRAY_A);
+		if(is_array($dbResult) && count($dbResult))
+		{
+			foreach($dbResult AS $Row)
+				$core[] = $Row['file'];
+		}
+	}
+
+	//the full path is...
+	$file = looksee_straighten_windows(ABSPATH . $path);
+
+	//must be a valid, non-core file
+	if(!@file_exists($file) || in_array($path, $core))
+		return false;
+
+	//just look at PHP files
+	$ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+	if(!preg_match('/^php/', $ext))
+		return false;
+
+	//just in case a .php file is something else
+	try {
+		$finfo = finfo_open(FILEINFO_MIME);
+		$mime = finfo_file($finfo, $file);
+		if(substr($mime,0,4) !== 'text')
+			return false;
+	} catch(Exception $e){ }
+
+	//this might still fail, so try/catch
+	try {
+		$text = @file_get_contents($file);
+
+		//first, look for blacklisted functions
+		if(@preg_match('/\b(fsockopen|pfsockopen|proc_open|curl|exec|shell_exec|eval|hex2bin|base64_decode|passthru|unserialize|pcntl_alarm|pcntl_fork|pcntl_waitpid|pcntl_wait|pcntl_wifexited|pcntl_wifstopped|pcntl_wifsignaled|pcntl_wexitstatus|pcntl_wtermsig|pcntl_wstopsig|pcntl_signal|pcntl_signal_dispatch|pcntl_get_last_error|pcntl_strerror|pcntl_sigprocmask|pcntl_sigwaitinfo|pcntl_sigtimedwait|pcntl_exec|pcntl_getpriority|pcntl_setpriority)\s*\(/', $text))
+			return true;
+	} catch(Exception $e){ return false; }
+
+	return false;
+}
 
 //----------------------------------------------------------------------  end scan-related functions
 
